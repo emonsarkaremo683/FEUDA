@@ -197,6 +197,12 @@ async function startServer() {
         position INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS devices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `;
 
   try {
@@ -511,6 +517,20 @@ async function startServer() {
   app.delete('/api/footer-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     await pool.query('DELETE FROM footer_links WHERE id = ?', [req.params.id]);
     res.json({ message: 'Footer Link Deleted' });
+  });
+
+  // --- DEVICES ---
+  app.get('/api/devices', async (req, res) => {
+    const [rows]: any = await pool.query('SELECT name FROM devices ORDER BY name ASC');
+    res.json(rows.map((r: any) => r.name));
+  });
+  app.post('/api/devices', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    await pool.query('INSERT INTO devices (name) VALUES (?)', [req.body.name]);
+    res.json({ message: 'Hardware Spec Logged' });
+  });
+  app.delete('/api/devices/:name', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    await pool.query('DELETE FROM devices WHERE name = ?', [req.params.name]);
+    res.json({ message: 'Hardware Spec Purged' });
   });
 
   // PUT update menu item
