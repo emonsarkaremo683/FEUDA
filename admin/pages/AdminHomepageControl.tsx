@@ -1,100 +1,224 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove
+} from '@dnd-kit/sortable';
+
+import { CSS } from '@dnd-kit/utilities';
+
+import HomePage from '../../client/pages/HomePage';
+import FileUploader from '../components/FileUploader';
 
 interface LayoutSection {
   id: string;
   label: string;
-  type: 'component' | 'banner' | 'category' | 'html';
+  type: 'component' | 'banner' | 'category' | 'html' | 'newsletter' | 'featured_products' | 'flash_sale' | 'video';
   visible: boolean;
   order: number;
   data?: any;
 }
 
+/* ================= SORTABLE ITEM ================= */
+const SortableItem = ({ section, children }: any) => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <div className="flex items-center gap-4">
+
+        {/* DRAG HANDLE ONLY */}
+        <div
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-2 text-slate-500"
+        >
+          ☰
+        </div>
+
+        {/* CONTENT */}
+        <div className="flex-1">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+/* ================= MAIN ================= */
 const AdminHomepageControl: React.FC = () => {
-  const { token, categories } = useApp();
+  const { token, categories, refreshCategories } = useApp();
+
   const [layout, setLayout] = useState<LayoutSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  const initialSection: LayoutSection = { 
-    id: '', 
-    label: '', 
-    type: 'component', 
-    visible: true, 
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  const initialSection: LayoutSection = {
+    id: '',
+    label: '',
+    type: 'component',
+    visible: true,
     order: 0,
     data: {}
   };
+
   const [form, setForm] = useState<LayoutSection>(initialSection);
 
+  /* ================= FETCH ================= */
   useEffect(() => {
-    fetch('/api/cms/homepage-layout')
-      .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
-      .then(data => {
-        if (data && data.content) {
+    const fetchLayout = async () => {
+      try {
+        // Try fetching draft first, fallback to live
+        let res = await fetch('/api/cms/homepage-layout-draft');
+        let data = await res.json();
+        
+        if (!data || data.title === 'Page Missing') {
+          res = await fetch('/api/cms/homepage-layout');
+          data = await res.json();
+        }
+
+        if (data?.content) {
           try {
-            setLayout(JSON.parse(data.content));
+            const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+            if (Array.isArray(parsed)) {
+              setLayout(parsed);
+            } else {
+              setDefaultLayout();
+            }
           } catch (e) {
             setDefaultLayout();
           }
         } else {
           setDefaultLayout();
         }
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
+        console.error('Failed to fetch layout:', err);
         setDefaultLayout();
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchLayout();
   }, []);
 
+  useEffect(() => {
+    refreshCategories();
+  }, [refreshCategories]);
+
+  /* ================= DEFAULT ================= */
   const setDefaultLayout = () => {
     setLayout([
-      { id: 'Hero', label: 'Hero Banner', type: 'component', visible: true, order: 1 },
-      { id: 'TabbedProductShowcase', label: 'Tabbed Showcase', type: 'component', visible: true, order: 2 },
-      { id: 'StorySection', label: 'Our Story', type: 'component', visible: true, order: 3 },
-      { id: 'Categories', label: 'Shop By Category', type: 'component', visible: true, order: 4 },
-      { id: 'TrustSection', label: 'Trust Badges', type: 'component', visible: true, order: 5 },
+      { id: 'Hero', label: 'Hero Banner', type: 'component', visible: true, order: 1, data: {} },
+      { id: 'TabbedProductShowcase', label: 'Tabbed Showcase', type: 'component', visible: true, order: 2, data: {} },
+      { id: 'StorySection', label: 'Our Story', type: 'component', visible: true, order: 3, data: {} },
+      { id: 'Categories', label: 'Shop By Category', type: 'component', visible: true, order: 4, data: {} },
+      { id: 'TrustSection', label: 'Trust Badges', type: 'component', visible: true, order: 5, data: {} }
     ]);
   };
 
-  const saveLayout = (updatedLayout = layout) => {
+  /* ================= SAVE DRAFT ================= */
+  const saveDraft = (updatedLayout = layout) => {
+    fetch('/api/cms/homepage-layout-draft', {
+      method: 'PUT', // Using PUT since we have an endpoint for that
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ 
+        title: 'Homepage Layout Configuration (Draft)',
+        content: JSON.stringify(updatedLayout)
+      })
+    });
+  };
+
+  /* ================= PUBLISH ================= */
+  const publishLayout = () => {
+    if (!window.confirm('Are you sure you want to publish these changes to the live site?')) return;
+    
     fetch('/api/cms/homepage-layout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ layout: updatedLayout })
-    }).then(() => alert('Homepage Orchestration Updated Successfully.'));
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ 
+        title: 'Homepage Layout Configuration',
+        content: JSON.stringify(layout)
+      })
+    }).then(res => {
+      if (res.ok) {
+        alert('🚀 Homepage Published Successfully! It is now live for all users.');
+      } else {
+        alert('❌ Publication Failed. Please check server logs.');
+      }
+    });
   };
 
-  const handleFileUpload = (file: File) => {
-    const formData = new FormData();
-    formData.append('image', file);
-    fetch('/api/upload', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    })
-      .then(res => res.json())
-      .then(data => {
-        setForm({ ...form, data: { ...form.data, imageUrl: data.imageUrl } });
-      });
+  /* ================= DRAG ================= */
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = layout.findIndex(i => i.id === active.id);
+    const newIndex = layout.findIndex(i => i.id === over.id);
+
+    const newLayout = arrayMove(layout, oldIndex, newIndex).map((item, i) => ({
+      ...item,
+      order: i + 1
+    }));
+
+    setLayout(newLayout);
+    saveDraft(newLayout);
   };
 
+  /* ================= CRUD ================= */
   const addOrUpdateSection = (e: React.FormEvent) => {
     e.preventDefault();
+
     let newLayout;
+
     if (isEditing) {
-      newLayout = layout.map(s => s.id === form.id ? form : s);
+      newLayout = layout.map(s => (s.id === form.id ? form : s));
     } else {
-      // Auto-generate ID if not provided
       const finalId = form.id || `section_${Date.now()}`;
       newLayout = [...layout, { ...form, id: finalId, order: layout.length + 1 }];
     }
+
     setLayout(newLayout);
+    saveDraft(newLayout);
+
     setShowModal(false);
     setForm(initialSection);
     setIsEditing(false);
+  };
+
+  const deleteSection = (id: string) => {
+    if (!window.confirm('Delete this section?')) return;
+    const filtered = layout
+      .filter(s => s.id !== id)
+      .map((s, i) => ({ ...s, order: i + 1 }));
+
+    setLayout(filtered);
+    saveDraft(filtered);
   };
 
   const editSection = (section: LayoutSection) => {
@@ -103,143 +227,439 @@ const AdminHomepageControl: React.FC = () => {
     setShowModal(true);
   };
 
-  const deleteSection = (id: string) => {
-    if (!window.confirm('Remove this section?')) return;
-    const filtered = layout.filter(s => s.id !== id).map((s, i) => ({ ...s, order: i + 1 }));
-    setLayout(filtered);
-  };
-
-  const moveOrder = (id: string, delta: number) => {
-    const idx = layout.findIndex(s => s.id === id);
-    if (idx + delta < 0 || idx + delta >= layout.length) return;
-    const newLayout = [...layout];
-    const temp = newLayout[idx];
-    newLayout[idx] = newLayout[idx + delta];
-    newLayout[idx + delta] = temp;
-    setLayout(newLayout.map((s, i) => ({ ...s, order: i + 1 })));
-  };
+  /* ================= UI ================= */
+  if (loading) {
+    return <div className="text-white text-center">Loading...</div>;
+  }
 
   return (
-    <div className="space-y-10 pb-20">
-      <div className="flex justify-between items-center bg-[#161920] p-8 rounded-3xl border border-white/5 shadow-2xl">
+    <div className="space-y-10 pb-20 text-white">
+
+      {/* HEADER ACTIONS */}
+      <div className="flex justify-between items-center bg-[#161920] p-6 rounded-3xl shadow-xl">
         <div>
-          <h2 className="text-2xl font-black text-white tracking-tight uppercase">Homepage Orchestrator</h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Real-time Visual Layout Control</p>
+          <h2 className="text-2xl font-black uppercase tracking-tighter italic">Homepage Orchestrator</h2>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Drafting & Deployment Core</p>
         </div>
         <div className="flex gap-4">
-            <button onClick={() => { setIsEditing(false); setForm(initialSection); setShowModal(true); }} className="bg-white/5 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-white/10 hover:bg-white/10 transition-all">
-                Add Section
-            </button>
-            <button onClick={() => saveLayout()} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/20 hover:scale-105 transition-all active:scale-95">
-                Commit Orchestration
-            </button>
+          <button
+            onClick={() => setShowPreview(true)}
+            className="px-6 py-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl font-bold uppercase text-xs transition-all"
+          >
+            Live Preview
+          </button>
+          <button
+            onClick={publishLayout}
+            className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold uppercase text-xs shadow-lg shadow-green-900/20 transition-all"
+          >
+            Publish Live
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setForm(initialSection);
+              setIsEditing(false);
+              setShowModal(true);
+            }}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold uppercase text-xs shadow-lg shadow-purple-900/20 transition-all"
+          >
+            + Add Section
+          </button>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-4">
-        {layout.sort((a,b) => a.order - b.order).map((section) => (
-          <div key={section.id} className={`bg-[#161920] border border-white/5 p-6 rounded-3xl flex items-center justify-between transition-all ${section.visible ? 'opacity-100 shadow-xl' : 'opacity-40 grayscale'}`}>
-            <div className="flex items-center gap-6">
-              <div className="flex flex-col gap-1">
-                <button onClick={() => moveOrder(section.id, -1)} className="p-1 hover:text-white text-slate-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 15l7-7 7 7"/></svg></button>
-                <button onClick={() => moveOrder(section.id, 1)} className="p-1 hover:text-white text-slate-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"/></svg></button>
-              </div>
-              <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center">
-                 <span className="text-[10px] font-black text-purple-400 uppercase">{section.type[0]}</span>
-              </div>
-              <div>
-                 <h4 className="font-black text-white text-lg tracking-tight uppercase">{section.label || section.id}</h4>
-                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{section.type} • Order: {section.order}</p>
-              </div>
-            </div>
+      {/* DRAG SYSTEM */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={layout.map(i => i.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="max-w-4xl mx-auto space-y-4">
+            {[...layout]
+              .sort((a, b) => a.order - b.order)
+              .map(section => (
+                <SortableItem key={section.id} section={section}>
+                  <div className="bg-[#161920] p-6 rounded-3xl flex justify-between items-center">
 
-            <div className="flex items-center gap-4">
-               <button onClick={() => editSection(section)} className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 transition-all">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-               </button>
-               <button onClick={() => deleteSection(section.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-               </button>
-            </div>
+                    <div>
+                      <h4 className="font-bold uppercase">
+                        {section.label}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {section.type}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editSection(section);
+                        }}
+                        className="px-3 py-1 bg-white/10 rounded"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSection(section.id);
+                        }}
+                        className="px-3 py-1 bg-red-500 rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                  </div>
+                </SortableItem>
+              ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
+      {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0f1115]/90 backdrop-blur-md">
-          <div className="bg-[#161920] border border-white/10 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-scale-in">
-            <div className="p-10 border-b border-white/5 text-center">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight">{isEditing ? 'Configure' : 'Inject'} Section</h3>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <form
+            onSubmit={addOrUpdateSection}
+            className="bg-[#161920] p-8 rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl border border-white/5"
+          >
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-tight text-white mb-1">
+                {isEditing ? 'Configure Section' : 'Add New Section'}
+              </h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Homepage Architecture Node</p>
             </div>
-            <form onSubmit={addOrUpdateSection} className="p-10 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Section Label</label>
-                <input type="text" value={form.label} onChange={e => setForm({...form, label: e.target.value, id: e.target.value.replace(/\s+/g, '')})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold" required />
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Display Type</label>
-                <select value={form.type} onChange={e => setForm({...form, type: e.target.value as any})} className="w-full bg-[#0f1115] border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold appearance-none">
-                  <option value="component">System Component</option>
-                  <option value="banner">Static Banner</option>
-                  <option value="category">Category Highlight</option>
-                  <option value="html">Custom HTML / Code</option>
+            <input
+              value={form.label}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  label: e.target.value,
+                  id: isEditing
+                    ? form.id
+                    : e.target.value.replace(/\s+/g, '')
+                })
+              }
+              placeholder="Section Label (e.g. Summer Sale)"
+              className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+              required
+            />
+
+            <select
+              value={form.type}
+              onChange={(e) =>
+                setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { showLabel: true, label: 'Watch Reel' } : {} })
+              }
+              className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+            >
+              <option value="component">System Component</option>
+              <option value="video">Video Section</option>
+              <option value="banner">Static Banner</option>
+              <option value="category">Category Highlight</option>
+              <option value="featured_products">Featured Products Grid</option>
+              <option value="flash_sale">Flash Sale Banner</option>
+              <option value="newsletter">Newsletter Signup</option>
+              <option value="html">Custom HTML</option>
+            </select>
+
+            {form.type === 'component' && (
+              <div className="space-y-4">
+                <select 
+                  value={form.id} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    const label = e.target.options[e.target.selectedIndex].text;
+                    const newData = val === 'Hero' ? { slides: [] } : {};
+                    setForm({...form, id: val, label: label, data: newData});
+                  }}
+                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+                >
+                  <option value="">Select Component...</option>
+                  <option value="Hero">Hero Banner (Slider)</option>
+                  <option value="TabbedProductShowcase">Tabbed Showcase</option>
+                  <option value="StorySection">Our Story</option>
+                  <option value="Categories">Shop By Category</option>
+                  <option value="TrustSection">Trust Badges</option>
                 </select>
+
+                {form.id === 'Hero' && (
+                  <div className="space-y-4 border-t border-white/5 pt-4">
+                    <div className="flex justify-between items-center">
+                      <h5 className="text-xs font-black uppercase text-purple-400">Manage Slides</h5>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const slides = form.data?.slides || [];
+                          setForm({
+                            ...form,
+                            data: {
+                              ...form.data,
+                              slides: [...slides, { id: Date.now(), image: '', badge: '', title: '', subtitle: '', desc: '' }]
+                            }
+                          });
+                        }}
+                        className="text-[10px] bg-purple-600 px-2 py-1 rounded font-bold uppercase"
+                      >
+                        + Add Slide
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                      {(form.data?.slides || []).map((slide: any, idx: number) => (
+                        <div key={slide.id} className="p-4 bg-black/40 rounded-xl space-y-2 relative">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const slides = [...form.data.slides];
+                              slides.splice(idx, 1);
+                              setForm({...form, data: { ...form.data, slides }});
+                            }}
+                            className="absolute top-2 right-2 text-red-500 font-bold"
+                          >
+                            ×
+                          </button>
+                          <div className="flex gap-2">
+                            <input 
+                              placeholder="Image URL" 
+                              className="flex-1 p-1 bg-black text-xs border border-white/10 rounded" 
+                              value={slide.image} 
+                              onChange={e => {
+                                const slides = [...form.data.slides];
+                                slides[idx].image = e.target.value;
+                                setForm({...form, data: { ...form.data, slides }});
+                              }}
+                            />
+                            <FileUploader 
+                              token={token} 
+                              label="↑" 
+                              onUploadSuccess={(url) => {
+                                const slides = [...form.data.slides];
+                                slides[idx].image = url;
+                                setForm({...form, data: { ...form.data, slides }});
+                              }} 
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input 
+                              placeholder="Badge" 
+                              className="w-full p-1 bg-black text-xs border border-white/10 rounded" 
+                              value={slide.badge} 
+                              onChange={e => {
+                                const slides = [...form.data.slides];
+                                slides[idx].badge = e.target.value;
+                                setForm({...form, data: { ...form.data, slides }});
+                              }}
+                            />
+                            <input 
+                              placeholder="Title" 
+                              className="w-full p-1 bg-black text-xs border border-white/10 rounded" 
+                              value={slide.title} 
+                              onChange={e => {
+                                const slides = [...form.data.slides];
+                                slides[idx].title = e.target.value;
+                                setForm({...form, data: { ...form.data, slides }});
+                              }}
+                            />
+                          </div>
+                          <input 
+                            placeholder="Subtitle" 
+                            className="w-full p-1 bg-black text-xs border border-white/10 rounded" 
+                            value={slide.subtitle} 
+                            onChange={e => {
+                              const slides = [...form.data.slides];
+                              slides[idx].subtitle = e.target.value;
+                              setForm({...form, data: { ...form.data, slides }});
+                            }}
+                          />
+                          <textarea 
+                            placeholder="Description" 
+                            className="w-full p-1 bg-black text-xs border border-white/10 rounded h-12" 
+                            value={slide.desc} 
+                            onChange={e => {
+                              const slides = [...form.data.slides];
+                              slides[idx].desc = e.target.value;
+                              setForm({...form, data: { ...form.data, slides }});
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
 
-              {form.type === 'component' && (
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Select Component</label>
-                   <select value={form.id} onChange={e => setForm({...form, id: e.target.value})} className="w-full bg-[#0f1115] border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold appearance-none">
-                      <option value="Hero">Hero Banner</option>
-                      <option value="TabbedProductShowcase">Tabbed Showcase</option>
-                      <option value="StorySection">Our Story</option>
-                      <option value="Categories">Shop By Category</option>
-                      <option value="TrustSection">Trust Badges</option>
-                   </select>
+            {form.type === 'video' && (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <input 
+                    placeholder="Video URL (Direct link to .mp4)" 
+                    className="flex-1 p-2 bg-black text-white rounded-lg border border-white/10"
+                    value={form.data?.videoUrl || ''}
+                    onChange={e => setForm({...form, data: { ...form.data, videoUrl: e.target.value }})}
+                    required
+                  />
+                  <FileUploader 
+                    token={token} 
+                    label="Upload Video" 
+                    onUploadSuccess={(url) => setForm({...form, data: { ...form.data, videoUrl: url }})} 
+                  />
                 </div>
-              )}
-
-              {form.type === 'category' && (
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Target Category</label>
-                   <select value={form.data?.category || ''} onChange={e => setForm({...form, data: { ...form.data, category: e.target.value }})} className="w-full bg-[#0f1115] border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold appearance-none">
-                      <option value="">Select Category...</option>
-                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                   </select>
+                <div className="flex items-center gap-4 py-2 border-b border-white/5">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input 
+                      type="checkbox" 
+                      checked={form.data?.showLabel ?? true} 
+                      onChange={e => setForm({...form, data: { ...form.data, showLabel: e.target.checked }})} 
+                    /> 
+                    Show Label
+                  </label>
+                  {form.data?.showLabel !== false && (
+                    <input 
+                      placeholder="Label Text (e.g. Watch Reel)" 
+                      className="flex-1 p-2 bg-black text-white text-xs rounded-lg border border-white/10"
+                      value={form.data?.label || ''}
+                      onChange={e => setForm({...form, data: { ...form.data, label: e.target.value }})}
+                    />
+                  )}
                 </div>
-              )}
-
-              {form.type === 'banner' && (
-                <div className="space-y-4">
-                   <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Banner Image</label>
-                      <div className="relative group h-28">
-                         <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                         <div className="h-full bg-white/5 border-2 border-dashed border-white/10 rounded-3xl flex items-center justify-center overflow-hidden">
-                            {form.data?.imageUrl ? <img src={form.data.imageUrl} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-slate-600 uppercase">Upload Media</span>}
-                         </div>
-                      </div>
-                   </div>
-                   <input type="text" placeholder="Call to Action Link (URL)" value={form.data?.link || ''} onChange={e => setForm({...form, data: { ...form.data, link: e.target.value }})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold text-xs" />
-                </div>
-              )}
-
-              {form.type === 'html' && (
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Raw HTML Content</label>
-                   <textarea value={form.data?.html || ''} onChange={e => setForm({...form, data: { ...form.data, html: e.target.value }})} className="w-full bg-[#0f1115] border border-white/10 rounded-2xl p-6 text-slate-300 font-mono text-xs leading-relaxed outline-none focus:border-purple-500 transition-all h-32" placeholder="<div class='bg-red-500'>Custom Promo</div>" />
-                </div>
-              )}
-
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 bg-white/5 text-slate-400 font-black uppercase text-[10px] rounded-2xl">Abort</button>
-                <button type="submit" className="flex-1 py-4 bg-purple-600 text-white font-black uppercase text-[10px] rounded-2xl shadow-lg shadow-purple-500/20">{isEditing ? 'Update' : 'Initialize'}</button>
+                <input 
+                  placeholder="Overlay Title (Optional)" 
+                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+                  value={form.data?.title || ''}
+                  onChange={e => setForm({...form, data: { ...form.data, title: e.target.value }})}
+                />
+                <input 
+                  placeholder="Overlay Subtitle (Optional)" 
+                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+                  value={form.data?.subtitle || ''}
+                  onChange={e => setForm({...form, data: { ...form.data, subtitle: e.target.value }})}
+                />
               </div>
-            </form>
+            )}
+
+            {form.type === 'category' && (
+              <select 
+                value={form.data?.category || ''} 
+                onChange={e => setForm({...form, data: { ...form.data, category: e.target.value }})}
+                className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+              >
+                <option value="">Select Category...</option>
+                {categories.map((cat: string) => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            )}
+
+            {form.type === 'banner' && (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Image URL" 
+                    value={form.data?.imageUrl || ''} 
+                    onChange={e => setForm({...form, data: { ...form.data, imageUrl: e.target.value }})}
+                    className="flex-1 p-2 bg-black text-white rounded-lg border border-white/10"
+                  />
+                  <FileUploader 
+                    token={token} 
+                    label="Upload" 
+                    onUploadSuccess={(url) => setForm({...form, data: { ...form.data, imageUrl: url }})} 
+                  />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder="Link (e.g. /category/chargers)" 
+                  value={form.data?.link || ''} 
+                  onChange={e => setForm({...form, data: { ...form.data, link: e.target.value }})}
+                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+                />
+              </div>
+            )}
+
+            {form.type === 'flash_sale' && (
+              <div className="space-y-4">
+                <input 
+                  type="datetime-local" 
+                  value={form.data?.endDate || ''} 
+                  onChange={e => setForm({...form, data: { ...form.data, endDate: e.target.value }})}
+                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+                />
+                <input 
+                  type="text" 
+                  placeholder="Promo Text" 
+                  value={form.data?.promoText || ''} 
+                  onChange={e => setForm({...form, data: { ...form.data, promoText: e.target.value }})}
+                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
+                />
+              </div>
+            )}
+
+            {form.type === 'html' && (
+              <textarea 
+                placeholder="Raw HTML / Tailwind Classes Supported" 
+                value={form.data?.html || ''} 
+                onChange={e => setForm({...form, data: { ...form.data, html: e.target.value }})}
+                className="w-full p-2 bg-black text-white rounded-lg border border-white/10 h-32"
+              />
+            )}
+
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                checked={form.visible} 
+                onChange={e => setForm({...form, visible: e.target.checked})} 
+                id="visible"
+              />
+              <label htmlFor="visible">Visible on Site</label>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button 
+                type="button" 
+                onClick={() => setShowModal(false)}
+                className="flex-1 py-2 bg-white/5 rounded-lg font-bold"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                className="flex-1 py-2 bg-purple-600 rounded-lg font-bold"
+              >
+                {isEditing ? 'Save Changes' : 'Create Section'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* PREVIEW MODAL */}
+      {showPreview && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-white">
+          <div className="bg-[#161920] p-4 flex justify-between items-center text-white">
+            <div>
+              <span className="text-xs font-black uppercase bg-green-600 px-2 py-1 rounded mr-2">Preview Mode</span>
+              <span className="text-sm opacity-70 italic">Simulating live storefront with current draft</span>
+            </div>
+            <button 
+              onClick={() => setShowPreview(false)}
+              className="px-4 py-2 bg-red-600 rounded-lg font-bold text-xs uppercase"
+            >
+              Exit Preview
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <HomePage previewLayout={layout} />
           </div>
         </div>
       )}
+
     </div>
   );
 };

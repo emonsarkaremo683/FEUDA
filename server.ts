@@ -68,6 +68,10 @@ async function startServer() {
     await tempConn.end();
     pool = mysql.createPool(dbConfig);
     console.log(`✅ [Obsidian Node] Nexus Core Linked to Database: ${dbConfig.database}`);
+    
+    // Test the connection
+    const [test] = await pool.query('SELECT 1 + 1 AS result');
+    console.log(`📡 [Database] Latency Check: OK (Result: ${test[0].result})`);
   } catch (err) {
     console.error(`❌ [Critical Fault] Database Link Severed: ${err.message}`);
     process.exit(1);
@@ -207,6 +211,24 @@ async function startServer() {
 
   try {
     await pool.query(schemaFile);
+    
+    // Seeding logic
+    const [existingPages]: any = await pool.query('SELECT COUNT(*) as count FROM cms_pages');
+    if (existingPages[0].count === 0) {
+      console.log('🌱 [Seeding] Populating Initial CMS Content...');
+      await pool.query(`
+        INSERT IGNORE INTO cms_pages (slug, title, content) VALUES
+        ('homepage-layout', 'Homepage Layout', '[{"id":"Hero","label":"Hero Banner","type":"component","visible":true,"order":1},{"id":"TabbedProductShowcase","label":"Tabbed Showcase","type":"component","visible":true,"order":2},{"id":"StorySection","label":"Our Story","type":"component","visible":true,"order":3},{"id":"Categories","label":"Shop By Category","type":"component","visible":true,"order":4},{"id":"TrustSection","label":"Trust Badges","type":"component","visible":true,"order":5}]'),
+        ('contact', 'Contact Us', '<h1>Contact Us</h1><p>Default content for Contact Us.</p>'),
+        ('shipping-policy', 'Shipping Policy', '<h1>Shipping Policy</h1><p>Default content for Shipping Policy.</p>'),
+        ('returns-refunds', 'Returns & Refunds', '<h1>Returns & Refunds</h1><p>Default content for Returns & Refunds.</p>'),
+        ('faq', 'FAQ', '<h1>FAQ</h1><p>Default content for FAQ.</p>'),
+        ('privacy-policy', 'Privacy Policy', '<h1>Privacy Policy</h1><p>Default content for Privacy Policy.</p>'),
+        ('terms-service', 'Terms of Service', '<h1>Terms of Service</h1><p>Default content for Terms of Service.</p>'),
+        ('cookie-policy', 'Cookie Policy', '<h1>Cookie Policy</h1><p>Default content for Cookie Policy.</p>');
+      `);
+    }
+
     const [admins] = await pool.query('SELECT * FROM users WHERE role = "admin"');
     if (admins.length === 0) {
       await pool.query('INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
@@ -254,12 +276,14 @@ async function startServer() {
     try {
       const [existing]: any = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
       if (existing.length > 0) return res.status(409).json({ error: 'Email already registered' });
+      const [totalUsers]: any = await pool.query('SELECT COUNT(*) as count FROM users');
+      const role = totalUsers[0].count === 0 ? 'admin' : 'user';
       const [r]: any = await pool.query(
         'INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-        [fullName, email, Security.hash(password), 'user']
+        [fullName, email, Security.hash(password), role]
       );
-      const token = jwt.sign({ id: r.insertId, email, role: 'user', fullName }, JWT_SECRET, { expiresIn: '24h' });
-      res.status(201).json({ token, user: { id: r.insertId, email, fullName, role: 'user' } });
+      const token = jwt.sign({ id: r.insertId, email, role, fullName }, JWT_SECRET, { expiresIn: '24h' });
+      res.status(201).json({ token, user: { id: r.insertId, email, fullName, role } });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -423,20 +447,34 @@ async function startServer() {
   });
 
   app.get('/api/cms', async (req, res) => { res.json((await pool.query('SELECT * FROM cms_pages'))[0]); });
-  app.post('/api/cms/homepage-layout', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { layout } = req.body;
-    await pool.query('INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE content = ?', 
-      ['homepage-layout', 'Homepage Layout Configuration', JSON.stringify(layout), JSON.stringify(layout)]);
-    res.json({ message: 'Orchestration Updated' });
-  });
+  
   app.get('/api/cms/:slug', async (req, res) => {
     const [rows]: any = await pool.query('SELECT * FROM cms_pages WHERE slug = ?', [req.params.slug]);
     res.json(rows[0] || { title: 'Page Missing', content: '<p>Under Construction</p>' });
   });
-  app.put('/api/cms/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+
+  // Unified CMS Update (Handles both creation/update by slug OR update by ID)
+  app.put('/api/cms/:identifier', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     const { title, content, slug } = req.body;
-    await pool.query('UPDATE cms_pages SET title=?, content=?, slug=? WHERE id=?', [title, content, slug, req.params.id]);
-    res.json({ message: 'Content Updated' });
+    const { identifier } = req.params;
+
+    if (!isNaN(Number(identifier))) {
+      // Identifier is an ID
+      await pool.query('UPDATE cms_pages SET title=?, content=?, slug=? WHERE id=?', 
+        [title, content, slug || identifier, identifier]);
+    } else {
+      // Identifier is a Slug
+      await pool.query(
+        'INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=?, content=?',
+        [identifier, title, content, title, content]
+      );
+    }
+    res.json({ message: 'Content Synchronized' });
+  });
+
+  app.delete('/api/cms/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    await pool.query('DELETE FROM cms_pages WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Page Purged' });
   });
 
   app.get('/api/menus', async (req, res) => { res.json((await pool.query('SELECT * FROM menu_items ORDER BY position ASC'))[0]); });
@@ -543,16 +581,6 @@ async function startServer() {
     res.json({ message: 'Menu Item Updated' });
   });
 
-  // PUT update CMS page
-  app.put('/api/cms/:slug', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { title, content } = req.body;
-    await pool.query(
-      'INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=?, content=?',
-      [req.params.slug, title, content, title, content]
-    );
-    res.json({ message: 'Page Updated' });
-  });
-
   // Update user profile (self)
   app.put('/api/me', Gatekeeper.authenticate, async (req: any, res) => {
     const { fullName, phone } = req.body;
@@ -570,11 +598,6 @@ async function startServer() {
     if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     await pool.query('UPDATE users SET password_hash=? WHERE id=?', [Security.hash(newPassword), req.user.id]);
     res.json({ message: 'Password Changed' });
-  });
-
-  app.get('/api/devices', async (req, res) => {
-    const [rows]: any = await pool.query('SELECT DISTINCT model_compatibility FROM products WHERE model_compatibility IS NOT NULL');
-    res.json(rows.map((r: any) => r.model_compatibility));
   });
 
   // --- VITE ---

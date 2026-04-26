@@ -17,6 +17,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [selectedColor, setSelectedColor] = useState<string | undefined>(product.colors?.[0]);
   
   const isFavorite = wishlist.includes(product.id);
+  const isOutOfStock = product.stock === 0;
 
   // Check if current global filter matches product
   const isDirectlyCompatible = selectedDevice === 'all' || product.modelCompatibility === selectedDevice;
@@ -24,6 +25,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isOutOfStock) return;
     addToCart(product, 1, selectedColor);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 1500);
@@ -32,6 +34,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isOutOfStock) return;
     addToCart(product, 1, selectedColor);
     navigate('/checkout');
   };
@@ -50,19 +53,28 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   return (
     <div 
-      className={`group relative bg-white rounded-3xl overflow-hidden border border-slate-100 transition-all duration-500 flex flex-col h-full hover:shadow-2xl hover:shadow-blue-900/10 hover:-translate-y-1 ${!isDirectlyCompatible ? 'opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' : ''}`}
+      className={`group relative bg-white rounded-3xl overflow-hidden border border-slate-100 transition-all duration-500 flex flex-col h-full hover:shadow-2xl hover:shadow-blue-900/10 hover:-translate-y-1 ${!isDirectlyCompatible ? 'opacity-70 grayscale-[0.2]' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <Link to={`/product/${product.id}`} className="relative aspect-[4/5] overflow-hidden bg-slate-50">
         {/* Primary Image */}
         <div className={`absolute inset-0 transition-opacity duration-700 ${isHovered && product.images && product.images[0] ? 'opacity-0' : 'opacity-100'}`}>
-          <LazyImage src={product.image} alt={product.name} className="w-full h-full" />
+          <LazyImage src={product.image} alt={product.name} className={`w-full h-full ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
         </div>
         {/* Hover Secondary Image (Check if exists) */}
         {product.images && product.images[0] && (
           <div className={`absolute inset-0 transition-all duration-1000 transform ${isHovered ? 'opacity-100 scale-105' : 'opacity-0 scale-100'}`}>
-            <LazyImage src={product.images[0]} alt={product.name} className="w-full h-full" />
+            <LazyImage src={product.images[0]} alt={product.name} className={`w-full h-full ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
+          </div>
+        )}
+
+        {/* Stock Out Overlay */}
+        {isOutOfStock && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[2px] z-10">
+            <span className="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-2xl">
+              Stock Out
+            </span>
           </div>
         )}
 
@@ -92,9 +104,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className={`absolute bottom-0 inset-x-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-blue-900/50 to-transparent z-20`}>
            <button 
              onClick={handleBuyNow}
-             className="w-full bg-white text-blue-900 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl hover:bg-gradient-to-r hover:from-blue-700 hover:via-purple-600 hover:to-red-500 hover:text-white transition-all border border-white/20"
+             disabled={isOutOfStock}
+             className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transition-all border border-white/20 ${
+               isOutOfStock 
+               ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+               : 'bg-white text-blue-900 hover:bg-gradient-to-r hover:from-blue-700 hover:via-purple-600 hover:to-red-500 hover:text-white'
+             }`}
            >
-             Shop Now
+             {isOutOfStock ? 'Out of Stock' : 'Shop Now'}
            </button>
         </div>
       </Link>
@@ -132,10 +149,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
           <button 
             onClick={handleAddToCart}
+            disabled={isOutOfStock}
             className={`relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
-              isAdded 
-                ? 'bg-green-500 text-white scale-95 shadow-green-200' 
-                : 'bg-slate-100 text-blue-900 hover:bg-blue-900 hover:text-white active:scale-95'
+              isOutOfStock 
+                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                : isAdded 
+                  ? 'bg-green-500 text-white scale-95 shadow-green-200' 
+                  : 'bg-slate-100 text-blue-900 hover:bg-blue-900 hover:text-white active:scale-95'
             }`}
             aria-label="Add to cart"
           >

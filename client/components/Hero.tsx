@@ -2,7 +2,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const slides = [
+interface HeroSlide {
+  id: string | number;
+  badge: string;
+  title: string;
+  subtitle: string;
+  desc: string;
+  image: string;
+  link?: string;
+}
+
+interface HeroProps {
+  slides?: HeroSlide[];
+}
+
+const defaultSlides: HeroSlide[] = [
   {
     id: 1,
     badge: 'New Arrival',
@@ -10,7 +24,6 @@ const slides = [
     subtitle: 'For Your iPhone 17.',
     desc: 'Engineered for precision. Crafted for style. Discover the ultimate collection.',
     image: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1200&auto=format&fit=crop',
-    color: 'blue'
   },
   {
     id: 2,
@@ -19,7 +32,6 @@ const slides = [
     subtitle: 'Snap & Charge.',
     desc: 'Experience the fastest wireless charging with our premium MagSafe collection.',
     image: 'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=1200&auto=format&fit=crop',
-    color: 'purple'
   },
   {
     id: 3,
@@ -28,19 +40,19 @@ const slides = [
     subtitle: 'Invisible Armor.',
     desc: 'Protection that feels like nothing is there. Zero bulk, maximum safety.',
     image: 'https://images.unsplash.com/photo-1592750475338-74b7b2191392?q=80&w=1200&auto=format&fit=crop',
-    color: 'emerald'
   }
 ];
 
-const Hero: React.FC = () => {
+const Hero: React.FC<HeroProps> = ({ slides = defaultSlides }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
+    if (!slides || slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides]);
 
   return (
     <section className="relative min-h-[500px] sm:min-h-[600px] h-[80vh] sm:h-screen w-full bg-[#050A30] overflow-hidden group">

@@ -11,6 +11,9 @@ import Toast from './client/components/Toast';
 import AnnouncementBar from './client/components/AnnouncementBar';
 import TabbedProductShowcase from './client/components/TabbedProductShowcase';
 import StorySection from './client/components/StorySection';
+import ShopByCategory from './client/components/ShopByCategory';
+import HomePage from './client/pages/HomePage';
+
 
 
 // Lazy loading Client Pages
@@ -40,7 +43,7 @@ const AdminAnalytics = lazy(() => import('./admin/pages/AdminAnalytics'));
 const AdminCategories = lazy(() => import('./admin/pages/AdminCategories'));
 const AdminCMS = lazy(() => import('./admin/pages/AdminCMS'));
 const AdminMenus = lazy(() => import('./admin/pages/AdminMenus'));
-const AdminHomepageControl = lazy(() => import('./admin/pages/AdminHomepageControl'));
+import AdminHomepageControl from './admin/pages/AdminHomepageControl';
 const AdminPayments = lazy(() => import('./admin/pages/AdminPayments'));
 const AdminDevices = lazy(() => import('./admin/pages/AdminDevices'));
 const AdminERP = lazy(() => import('./admin/pages/AdminERP'));
@@ -64,109 +67,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boole
   }
 
   return <>{children}</>;
-};
-
-// Define mapping for Homepage component loading
-const SectionComponents: Record<string, React.FC> = {
-  Hero: Hero,
-  TabbedProductShowcase: TabbedProductShowcase,
-  StorySection: StorySection,
-  TrustSection: TrustSection,
-  Categories: ShopByCategory
-};
-
-const CategoryHighlight: React.FC<{ category: string }> = ({ category }) => {
-  const { products } = useApp();
-  const catProducts = products.filter(p => p.category === category).slice(0, 4);
-
-  if (catProducts.length === 0) return null;
-
-  return (
-    <section className="max-w-7xl mx-auto px-4 py-20">
-      <div className="flex justify-between items-end mb-12">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{category}</h2>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Curated selection from our fleet</p>
-        </div>
-        <Link to={`/category/${category.toLowerCase().replace(/ /g, '-')}`} className="text-xs font-black text-slate-900 uppercase border-b-2 border-slate-900 pb-1">View All</Link>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {catProducts.map(p => <ProductCard key={p.id} product={p} />)}
-      </div>
-    </section>
-  );
-};
-
-const HomePage: React.FC = () => {
-  const { products } = useApp();
-  const [layout, setLayout] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch('/api/cms/homepage-layout')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data && data.content) {
-          try {
-            setLayout(JSON.parse(data.content));
-          } catch (e) {
-            setLayout([]);
-          }
-        }
-      });
-  }, []);
-
-  const renderSection = (section: any) => {
-    if (!section.visible) return null;
-
-    switch (section.type) {
-      case 'component':
-        const Component = SectionComponents[section.id];
-        return Component ? <Component key={section.id} /> : null;
-      
-      case 'category':
-        return <CategoryHighlight key={section.id} category={section.data?.category} />;
-      
-      case 'banner':
-        return (
-          <section key={section.id} className="max-w-7xl mx-auto px-4 py-10">
-            <Link to={section.data?.link || '#'}>
-               <div className="w-full h-[300px] md:h-[500px] rounded-[3rem] overflow-hidden relative group shadow-2xl">
-                  <img src={section.data?.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={section.label} />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-                  <div className="absolute bottom-12 left-12">
-                     <h3 className="text-white text-4xl font-black uppercase tracking-tight mb-4">{section.label}</h3>
-                     <span className="bg-white text-black px-8 py-3 rounded-full font-black uppercase tracking-widest text-[10px]">Explore Collection</span>
-                  </div>
-               </div>
-            </Link>
-          </section>
-        );
-
-      case 'html':
-        return (
-          <section key={section.id} className="max-w-7xl mx-auto px-4 py-10" dangerouslySetInnerHTML={{ __html: section.data?.html || '' }} />
-        );
-
-      default:
-        // Legacy fallback
-        const LegacyComp = SectionComponents[section.id];
-        return LegacyComp ? <LegacyComp key={section.id} /> : null;
-    }
-  };
-
-  const finalLayout = layout.length > 0 ? layout : [
-    { id: 'Hero', type: 'component', visible: true, order: 1 },
-    { id: 'TabbedProductShowcase', type: 'component', visible: true, order: 2 },
-    { id: 'StorySection', type: 'component', visible: true, order: 3 },
-    { id: 'Categories', type: 'component', visible: true, order: 4 },
-    { id: 'TrustSection', type: 'component', visible: true, order: 5 }
-  ];
-
-  return (
-    <div className="min-h-screen bg-[#fafafa] pb-20">
-      {finalLayout.sort((a,b) => a.order - b.order).map(section => renderSection(section))}
-    </div>
-  );
 };
 
 const AppRoutes: React.FC = () => {

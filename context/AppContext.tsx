@@ -71,7 +71,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
 
-  const refreshCategories = async () => {
+  const refreshCategories = React.useCallback(async () => {
     try {
       const response = await fetch('/api/categories');
       if (response.ok) {
@@ -83,13 +83,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
          }
       }
     } catch (err) {}
-  };
+  }, []);
 
   useEffect(() => {
     refreshCategories();
   }, []);
 
-  const refreshProducts = async () => {
+  const refreshProducts = React.useCallback(async () => {
     try {
       const response = await fetch('/api/products');
       if (response.ok) {
@@ -117,13 +117,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (error) {
       console.log("Using offline data");
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshProducts();
   }, []);
 
-  const refreshMenus = async () => {
+  const refreshMenus = React.useCallback(async () => {
     try {
       const response = await fetch('/api/menus');
       if (response.ok) {
@@ -133,7 +133,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       console.warn("Failed to fetch menus");
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshMenus();
