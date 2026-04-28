@@ -356,7 +356,7 @@ const AdminHomepageControl: React.FC = () => {
             <select
               value={form.type}
               onChange={(e) =>
-                setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { showLabel: true, label: 'Watch Reel' } : {} })
+                setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { sectionTitle: '', autoPlayEnabled: true, videos: [] } : {} })
               }
               className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
             >
@@ -499,50 +499,154 @@ const AdminHomepageControl: React.FC = () => {
 
             {form.type === 'video' && (
               <div className="space-y-4">
-                <div className="flex gap-2">
+                {/* Section Title (the big heading like "We Are Committed To Creating A Better World") */}
+                <div className="border border-purple-500/30 rounded-xl p-4 space-y-3 bg-purple-500/5">
+                  <h5 className="text-xs font-black uppercase text-purple-400 tracking-widest">Section Title</h5>
                   <input 
-                    placeholder="Video URL (Direct link to .mp4)" 
-                    className="flex-1 p-2 bg-black text-white rounded-lg border border-white/10"
-                    value={form.data?.videoUrl || ''}
-                    onChange={e => setForm({...form, data: { ...form.data, videoUrl: e.target.value }})}
-                    required
-                  />
-                  <FileUploader 
-                    token={token} 
-                    label="Upload Video" 
-                    onUploadSuccess={(url) => setForm({...form, data: { ...form.data, videoUrl: url }})} 
+                    placeholder="Section Title (e.g. We Are Committed To Creating A Better World)" 
+                    className="w-full p-3 bg-black text-white rounded-lg border border-white/10 text-sm font-bold"
+                    value={form.data?.sectionTitle || ''}
+                    onChange={e => setForm({...form, data: { ...form.data, sectionTitle: e.target.value }})}
                   />
                 </div>
-                <div className="flex items-center gap-4 py-2 border-b border-white/5">
-                  <label className="flex items-center gap-2 text-xs">
+
+                {/* Auto Play Toggle */}
+                <div className="flex items-center justify-between py-3 border-b border-white/5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Auto Play on Hover</label>
+                  <label className="relative inline-flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
-                      checked={form.data?.showLabel ?? true} 
-                      onChange={e => setForm({...form, data: { ...form.data, showLabel: e.target.checked }})} 
-                    /> 
-                    Show Label
-                  </label>
-                  {form.data?.showLabel !== false && (
-                    <input 
-                      placeholder="Label Text (e.g. Watch Reel)" 
-                      className="flex-1 p-2 bg-black text-white text-xs rounded-lg border border-white/10"
-                      value={form.data?.label || ''}
-                      onChange={e => setForm({...form, data: { ...form.data, label: e.target.value }})}
+                      className="sr-only peer" 
+                      checked={form.data?.autoPlayEnabled ?? true} 
+                      onChange={e => setForm({...form, data: { ...form.data, autoPlayEnabled: e.target.checked }})} 
                     />
-                  )}
+                    <div className="w-11 h-6 bg-slate-700 peer-checked:bg-orange-500 rounded-full transition-colors duration-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                  </label>
                 </div>
-                <input 
-                  placeholder="Overlay Title (Optional)" 
-                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
-                  value={form.data?.title || ''}
-                  onChange={e => setForm({...form, data: { ...form.data, title: e.target.value }})}
-                />
-                <input 
-                  placeholder="Overlay Subtitle (Optional)" 
-                  className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
-                  value={form.data?.subtitle || ''}
-                  onChange={e => setForm({...form, data: { ...form.data, subtitle: e.target.value }})}
-                />
+
+                {/* Video Items CRUD */}
+                <div className="space-y-4 border-t border-white/5 pt-4">
+                  <div className="flex justify-between items-center">
+                    <h5 className="text-xs font-black uppercase text-purple-400 tracking-widest">Video Items</h5>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const videos = form.data?.videos || [];
+                        setForm({
+                          ...form,
+                          data: {
+                            ...form.data,
+                            videos: [...videos, { id: Date.now(), videoUrl: '', thumbnail: '', title: '', description: '' }]
+                          }
+                        });
+                      }}
+                      className="text-[10px] bg-purple-600 hover:bg-purple-500 px-3 py-1.5 rounded-lg font-bold uppercase transition-colors"
+                    >
+                      + Add Video
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
+                    {(form.data?.videos || []).map((video: any, idx: number) => (
+                      <div key={video.id} className="p-4 bg-black/40 rounded-xl space-y-3 relative border border-white/5">
+                        {/* Delete Button */}
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const videos = [...(form.data?.videos || [])];
+                            videos.splice(idx, 1);
+                            setForm({...form, data: { ...form.data, videos }});
+                          }}
+                          className="absolute top-2 right-2 text-red-500 hover:text-red-400 font-bold text-lg transition-colors"
+                        >
+                          ×
+                        </button>
+
+                        <div className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                          Video #{idx + 1}
+                        </div>
+
+                        {/* Video Title */}
+                        <input 
+                          placeholder="Video Title" 
+                          className="w-full p-2 bg-black text-white text-xs rounded-lg border border-white/10 font-bold" 
+                          value={video.title || ''} 
+                          onChange={e => {
+                            const videos = [...(form.data?.videos || [])];
+                            videos[idx] = { ...videos[idx], title: e.target.value };
+                            setForm({...form, data: { ...form.data, videos }});
+                          }}
+                          required
+                        />
+
+                        {/* Video Description */}
+                        <input 
+                          placeholder="Short Description (Optional)" 
+                          className="w-full p-2 bg-black text-white text-xs rounded-lg border border-white/10" 
+                          value={video.description || ''} 
+                          onChange={e => {
+                            const videos = [...(form.data?.videos || [])];
+                            videos[idx] = { ...videos[idx], description: e.target.value };
+                            setForm({...form, data: { ...form.data, videos }});
+                          }}
+                        />
+
+                        {/* Video URL */}
+                        <div className="flex gap-2">
+                          <input 
+                            placeholder="Video URL (.mp4)" 
+                            className="flex-1 p-2 bg-black text-white text-xs rounded-lg border border-white/10" 
+                            value={video.videoUrl || ''} 
+                            onChange={e => {
+                              const videos = [...(form.data?.videos || [])];
+                              videos[idx] = { ...videos[idx], videoUrl: e.target.value };
+                              setForm({...form, data: { ...form.data, videos }});
+                            }}
+                            required
+                          />
+                          <FileUploader 
+                            token={token} 
+                            label="↑" 
+                            onUploadSuccess={(url) => {
+                              const videos = [...(form.data?.videos || [])];
+                              videos[idx] = { ...videos[idx], videoUrl: url };
+                              setForm({...form, data: { ...form.data, videos }});
+                            }} 
+                          />
+                        </div>
+
+                        {/* Thumbnail URL */}
+                        <div className="flex gap-2">
+                          <input 
+                            placeholder="Thumbnail Image URL (Optional)" 
+                            className="flex-1 p-2 bg-black text-white text-xs rounded-lg border border-white/10" 
+                            value={video.thumbnail || ''} 
+                            onChange={e => {
+                              const videos = [...(form.data?.videos || [])];
+                              videos[idx] = { ...videos[idx], thumbnail: e.target.value };
+                              setForm({...form, data: { ...form.data, videos }});
+                            }}
+                          />
+                          <FileUploader 
+                            token={token} 
+                            label="↑" 
+                            onUploadSuccess={(url) => {
+                              const videos = [...(form.data?.videos || [])];
+                              videos[idx] = { ...videos[idx], thumbnail: url };
+                              setForm({...form, data: { ...form.data, videos }});
+                            }} 
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    {(!form.data?.videos || form.data.videos.length === 0) && (
+                      <div className="text-center py-8 text-slate-600 text-xs font-bold uppercase tracking-widest">
+                        No videos added yet. Click "+ Add Video" to start.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
