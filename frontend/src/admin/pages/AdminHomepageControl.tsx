@@ -236,21 +236,21 @@ const AdminHomepageControl: React.FC = () => {
     <div className="space-y-10 pb-20 text-white">
 
       {/* HEADER ACTIONS */}
-      <div className="flex justify-between items-center bg-[#161920] p-6 rounded-3xl shadow-xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#161920] p-6 rounded-3xl shadow-xl gap-6">
         <div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter italic">Homepage Orchestrator</h2>
+          <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter italic">Homepage Orchestrator</h2>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Drafting & Deployment Core</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
           <button
             onClick={() => setShowPreview(true)}
-            className="px-6 py-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl font-bold uppercase text-xs transition-all"
+            className="flex-1 md:flex-none px-4 md:px-6 py-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl font-bold uppercase text-[10px] md:text-xs transition-all"
           >
             Live Preview
           </button>
           <button
             onClick={publishLayout}
-            className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold uppercase text-xs shadow-lg shadow-green-900/20 transition-all"
+            className="flex-1 md:flex-none px-4 md:px-6 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold uppercase text-[10px] md:text-xs shadow-lg shadow-green-900/20 transition-all"
           >
             Publish Live
           </button>
@@ -261,7 +261,7 @@ const AdminHomepageControl: React.FC = () => {
               setIsEditing(false);
               setShowModal(true);
             }}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold uppercase text-xs shadow-lg shadow-purple-900/20 transition-all"
+            className="w-full md:w-auto px-4 md:px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold uppercase text-[10px] md:text-xs shadow-lg shadow-purple-900/20 transition-all"
           >
             + Add Section
           </button>
@@ -323,12 +323,11 @@ const AdminHomepageControl: React.FC = () => {
         </SortableContext>
       </DndContext>
 
-      {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 md:p-4 overflow-y-auto">
           <form
             onSubmit={addOrUpdateSection}
-            className="bg-[#161920] p-8 rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl border border-white/5"
+            className="bg-[#161920] p-6 md:p-8 rounded-[2rem] md:rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-4 md:space-y-6 shadow-2xl border border-white/5 my-auto"
           >
             <div>
               <h3 className="text-xl font-black uppercase tracking-tight text-white mb-1">
@@ -337,38 +336,40 @@ const AdminHomepageControl: React.FC = () => {
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Homepage Architecture Node</p>
             </div>
 
-            <input
-              value={form.label}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  label: e.target.value,
-                  id: isEditing
-                    ? form.id
-                    : e.target.value.replace(/\s+/g, '')
-                })
-              }
-              placeholder="Section Label (e.g. Summer Sale)"
-              className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
-              required
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                value={form.label}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    label: e.target.value,
+                    id: isEditing
+                      ? form.id
+                      : e.target.value.replace(/\s+/g, '')
+                  })
+                }
+                placeholder="Section Label"
+                className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold"
+                required
+              />
 
-            <select
-              value={form.type}
-              onChange={(e) =>
-                setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { sectionTitle: '', autoPlayEnabled: true, videos: [] } : {} })
-              }
-              className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
-            >
-              <option value="component">System Component</option>
-              <option value="video">Video Section</option>
-              <option value="banner">Static Banner</option>
-              <option value="category">Category Highlight</option>
-              <option value="featured_products">Featured Products Grid</option>
-              <option value="flash_sale">Flash Sale Banner</option>
-              <option value="newsletter">Newsletter Signup</option>
-              <option value="html">Custom HTML</option>
-            </select>
+              <select
+                value={form.type}
+                onChange={(e) =>
+                  setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { sectionTitle: '', autoPlayEnabled: true, videos: [] } : {} })
+                }
+                className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold"
+              >
+                <option value="component">System Component</option>
+                <option value="video">Video Section</option>
+                <option value="banner">Static Banner</option>
+                <option value="category">Category Highlight</option>
+                <option value="featured_products">Featured Products Grid</option>
+                <option value="flash_sale">Flash Sale Banner</option>
+                <option value="newsletter">Newsletter Signup</option>
+                <option value="html">Custom HTML</option>
+              </select>
+            </div>
 
             {form.type === 'component' && (
               <div className="space-y-4">
@@ -724,19 +725,19 @@ const AdminHomepageControl: React.FC = () => {
               <label htmlFor="visible">Visible on Site</label>
             </div>
 
-            <div className="flex gap-2 pt-4">
+            <div className="flex flex-col md:flex-row gap-4 pt-4">
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2 bg-white/5 rounded-lg font-bold"
+                className="flex-1 py-4 bg-white/5 rounded-2xl font-black uppercase text-[10px] text-slate-400 order-2 md:order-1"
               >
-                Cancel
+                Abort Configuration
               </button>
               <button 
                 type="submit"
-                className="flex-1 py-2 bg-purple-600 rounded-lg font-bold"
+                className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl font-black uppercase text-[10px] text-white shadow-lg shadow-purple-900/20 order-1 md:order-2"
               >
-                {isEditing ? 'Save Changes' : 'Create Section'}
+                {isEditing ? 'Commit Changes' : 'Deploy Section'}
               </button>
             </div>
           </form>

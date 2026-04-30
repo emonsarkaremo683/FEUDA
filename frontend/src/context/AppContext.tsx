@@ -8,6 +8,10 @@ interface AppContextType {
   refreshProducts: () => Promise<void>;
   menus: MenuItem[];
   refreshMenus: () => Promise<void>;
+  socialLinks: any[];
+  refreshSocialLinks: () => Promise<void>;
+  cmsPages: any[];
+  refreshCmsPages: () => Promise<void>;
   categories: any[];
   refreshCategories: () => Promise<void>;
   cart: CartItem[];
@@ -51,6 +55,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (e) { return CATEGORY_NAMES; }
   });
   const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [socialLinks, setSocialLinks] = useState<any[]>([]);
+  const [cmsPages, setCmsPages] = useState<any[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -138,6 +144,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     refreshMenus();
   }, []);
+
+  const refreshSocialLinks = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/social-links');
+      if (response.ok) {
+        const data = await response.json();
+        setSocialLinks(data);
+      }
+    } catch (err) {}
+  }, []);
+
+  useEffect(() => {
+    refreshSocialLinks();
+  }, [refreshSocialLinks]);
+
+  const refreshCmsPages = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/cms');
+      if (response.ok) {
+        const data = await response.json();
+        setCmsPages(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {}
+  }, []);
+
+  useEffect(() => {
+    refreshCmsPages();
+  }, [refreshCmsPages]);
 
   useEffect(() => {
     localStorage.setItem('fauda_device', selectedDevice);
@@ -338,6 +372,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{ 
       products, categories, menus, refreshMenus, refreshCategories,
+      socialLinks, refreshSocialLinks,
+      cmsPages, refreshCmsPages,
       cart, wishlist, orders, user, token, selectedDevice, setSelectedDevice, rememberMe, setRememberMe,
       addToCart, buyNow, updateCartQuantity, removeFromCart, clearCart, placeOrder,
       login, socialLogin: () => {}, logout, updateProfile, addAddress, removeAddress, updateOrderStatus,

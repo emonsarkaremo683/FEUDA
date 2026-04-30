@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 3001;
   const JWT_SECRET = process.env.JWT_SECRET || 'obsidian_core_secret_primary';
 
   const Security = {
@@ -48,7 +48,8 @@ async function startServer() {
   });
   const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-  app.use(cors());
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+  app.use(cors({ origin: FRONTEND_URL, credentials: true }));
   app.use(express.json());
   app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
@@ -193,12 +194,13 @@ async function startServer() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS footer_links (
+    CREATE TABLE IF NOT EXISTS social_links (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        label VARCHAR(255) NOT NULL,
+        platform VARCHAR(50) NOT NULL,
         url VARCHAR(255) NOT NULL,
-        category VARCHAR(100) NOT NULL,
+        icon VARCHAR(255),
         position INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -233,6 +235,24 @@ async function startServer() {
     if (admins.length === 0) {
       await pool.query('INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
         ['Root Admin', 'admin@feuda.com', Security.hash('admin123'), 'admin']);
+    }
+
+    const [footerMenus]: any = await pool.query('SELECT COUNT(*) as count FROM menu_items WHERE location = "footer"');
+    if (footerMenus[0].count === 0) {
+      console.log('🌱 [Seeding] Populating Footer Navigation...');
+      await pool.query(`
+        INSERT IGNORE INTO menu_items (label, url, location, position, layout_style) VALUES
+        ('Contact Us', '/cms/contact', 'footer', 1, 'Support'),
+        ('Shipping Policy', '/cms/shipping-policy', 'footer', 2, 'Support'),
+        ('Returns & Refunds', '/cms/returns-refunds', 'footer', 3, 'Support'),
+        ('FAQ', '/cms/faq', 'footer', 4, 'Support'),
+        ('Privacy Policy', '/cms/privacy-policy', 'footer', 5, 'Legal'),
+        ('Terms of Service', '/cms/terms-service', 'footer', 6, 'Legal'),
+        ('Cookie Policy', '/cms/cookie-policy', 'footer', 7, 'Legal'),
+        ('All Products', '/category/all', 'footer', 1, 'Shop'),
+        ('Clear Cases', '/category/clear-cases', 'footer', 2, 'Shop'),
+        ('MagSafe', '/category/magsafe', 'footer', 3, 'Shop');
+      `);
     }
   } catch (err) { console.warn(`⚠️ [Obsidian Warning] Schema error: ${err.message}`); }
 
@@ -537,24 +557,24 @@ async function startServer() {
     res.json({ message: 'Payment Method Deleted' });
   });
 
-  // --- FOOTER LINKS ---
-  app.get('/api/footer-links', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM footer_links ORDER BY category, position');
+  // --- SOCIAL LINKS ---
+  app.get('/api/social-links', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM social_links WHERE is_active = 1 ORDER BY position ASC');
     res.json(rows);
   });
-  app.post('/api/footer-links', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { label, url, category, position } = req.body;
-    const [r]: any = await pool.query('INSERT INTO footer_links (label, url, category, position) VALUES (?, ?, ?, ?)', [label, url, category, position || 0]);
+  app.post('/api/social-links', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const { platform, url, icon, position } = req.body;
+    const [r]: any = await pool.query('INSERT INTO social_links (platform, url, icon, position) VALUES (?, ?, ?, ?)', [platform, url, icon, position || 0]);
     res.json({ id: r.insertId });
   });
-  app.put('/api/footer-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { label, url, category, position } = req.body;
-    await pool.query('UPDATE footer_links SET label=?, url=?, category=?, position=? WHERE id=?', [label, url, category, position, req.params.id]);
-    res.json({ message: 'Footer Link Updated' });
+  app.put('/api/social-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const { platform, url, icon, position, is_active } = req.body;
+    await pool.query('UPDATE social_links SET platform=?, url=?, icon=?, position=?, is_active=? WHERE id=?', [platform, url, icon, position, is_active ?? true, req.params.id]);
+    res.json({ message: 'Social Link Updated' });
   });
-  app.delete('/api/footer-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    await pool.query('DELETE FROM footer_links WHERE id = ?', [req.params.id]);
-    res.json({ message: 'Footer Link Deleted' });
+  app.delete('/api/social-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    await pool.query('DELETE FROM social_links WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Social Link Deleted' });
   });
 
   // --- DEVICES ---
@@ -600,18 +620,13 @@ async function startServer() {
     res.json({ message: 'Password Changed' });
   });
 
-  // --- VITE ---
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer } = await import("vite");
-    const vite = await createServer({ server: { middlewareMode: true }, appType: "spa" });
-    app.use(vite.middlewares);
-  } else {
-    const dist = path.join(process.cwd(), 'dist');
-    app.use(express.static(dist));
-    app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
-  }
+  // --- STATIC UPLOADS ---
+  app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
-  app.listen(PORT, '0.0.0.0', () => console.log(`🚀 [Obsidican Core v3.1] Orbiting http://localhost:${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 [FEUDA API] Running on http://localhost:${PORT}`);
+    console.log(`📡 [CORS] Allowing origin: ${FRONTEND_URL}`);
+  });
 }
 
 startServer();

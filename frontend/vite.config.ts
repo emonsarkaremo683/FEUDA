@@ -6,11 +6,17 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-        port: 3000,
+        port: 5173,
         host: '0.0.0.0',
         proxy: {
-          '/api': 'http://localhost:3000',
-          '/uploads': 'http://localhost:3000'
+          '/api': {
+            target: env.VITE_API_URL || 'http://localhost:3001',
+            changeOrigin: true,
+          },
+          '/uploads': {
+            target: env.VITE_API_URL || 'http://localhost:3001',
+            changeOrigin: true,
+          }
         }
       },
       plugins: [react()],
@@ -20,7 +26,7 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': path.resolve(__dirname, './src'),
         }
       }
     };

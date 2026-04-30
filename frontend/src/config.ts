@@ -1,0 +1,13 @@
+// Central API configuration
+// Change this URL when deploying backend to cloud
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// Helper to build full API endpoint URLs
+export const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
+
+// Helper to build full upload/image URLs  
+export const uploadUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path; // Already absolute
+  return `${API_BASE_URL}${path}`;
+};
