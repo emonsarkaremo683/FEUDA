@@ -97,6 +97,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/policy/:type" element={<PolicyPage />} />
+            <Route path="/cms/:type" element={<PolicyPage />} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>

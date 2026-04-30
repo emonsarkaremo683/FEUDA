@@ -473,6 +473,17 @@ async function startServer() {
     res.json(rows[0] || { title: 'Page Missing', content: '<p>Under Construction</p>' });
   });
 
+  // Create new CMS page
+  app.post('/api/cms', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const { title, content, slug } = req.body;
+    try {
+      const [r]: any = await pool.query('INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?)', [slug, title, content]);
+      res.status(201).json({ id: r.insertId, message: 'Page Created' });
+    } catch (err: any) {
+      res.status(409).json({ error: 'Slug must be unique' });
+    }
+  });
+
   // Unified CMS Update (Handles both creation/update by slug OR update by ID)
   app.put('/api/cms/:identifier', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     const { title, content, slug } = req.body;
@@ -493,7 +504,12 @@ async function startServer() {
   });
 
   app.delete('/api/cms/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    await pool.query('DELETE FROM cms_pages WHERE id = ?', [req.params.id]);
+    const { id } = req.params;
+    if (!isNaN(Number(id))) {
+      await pool.query('DELETE FROM cms_pages WHERE id = ?', [id]);
+    } else {
+      await pool.query('DELETE FROM cms_pages WHERE slug = ?', [id]);
+    }
     res.json({ message: 'Page Purged' });
   });
 
@@ -593,10 +609,10 @@ async function startServer() {
 
   // PUT update menu item
   app.put('/api/menus/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { label, url, parent_id, position, location, is_active } = req.body;
+    const { label, url, parent_id, position, location, layout_style, is_active } = req.body;
     await pool.query(
-      'UPDATE menu_items SET label=?, url=?, parent_id=?, position=?, location=?, is_active=? WHERE id=?',
-      [label, url, parent_id || null, position || 0, location || 'header', is_active ?? true, req.params.id]
+      'UPDATE menu_items SET label=?, url=?, parent_id=?, position=?, location=?, layout_style=?, is_active=? WHERE id=?',
+      [label, url, parent_id || null, position || 0, location || 'header', layout_style || 'Default', is_active ?? true, req.params.id]
     );
     res.json({ message: 'Menu Item Updated' });
   });

@@ -13,7 +13,7 @@ interface MenuItem {
 }
 
 const AdminMenus: React.FC = () => {
-  const { token, refreshMenus } = useApp();
+  const { token, refreshMenus, cmsPages } = useApp();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -29,7 +29,8 @@ const AdminMenus: React.FC = () => {
     location: 'header', 
     position: 0, 
     parent_id: null as number | null,
-    layout_style: 'Default' 
+    layout_style: 'Default',
+    is_active: true
   };
   const [form, setForm] = useState(initialForm);
 
@@ -73,11 +74,12 @@ const AdminMenus: React.FC = () => {
   const handleEdit = (item: MenuItem) => {
     setForm({
       label: item.label,
-      url: item.url,
+      url: item.url || '',
       location: item.location,
       position: item.position,
       parent_id: item.parent_id,
-      layout_style: item.layout_style || 'Default'
+      layout_style: item.layout_style || 'Default',
+      is_active: item.is_active ?? true
     });
     setCurrentId(item.id);
     setIsEditing(true);
@@ -161,7 +163,7 @@ const AdminMenus: React.FC = () => {
                            <div className="flex items-center gap-4">
                               <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-black text-[10px]">{parent.position}</div>
                               <div>
-                                 <p className="text-sm font-bold text-white leading-none">{parent.label}</p>
+                                 <p className={`text-sm font-bold leading-none ${parent.is_active ? 'text-white' : 'text-white/20'}`}>{parent.label} {!parent.is_active && '(Disabled)'}</p>
                                  <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-widest">{parent.url} • <span className="text-purple-400">{parent.layout_style} Style</span></p>
                               </div>
                            </div>
@@ -182,7 +184,7 @@ const AdminMenus: React.FC = () => {
                                 <div className="flex items-center gap-4">
                                    <div className="w-6 h-6 rounded-md bg-blue-500/10 text-blue-400 flex items-center justify-center font-black text-[8px]">{child.position}</div>
                                    <div>
-                                      <p className="text-xs font-bold text-slate-300 leading-none">{child.label}</p>
+                                      <p className={`text-xs font-bold leading-none ${child.is_active ? 'text-slate-300' : 'text-slate-300/20'}`}>{child.label} {!child.is_active && '(Disabled)'}</p>
                                       <p className="text-[8px] text-slate-600 mt-1 uppercase tracking-widest">{child.url}</p>
                                    </div>
                                 </div>
@@ -320,10 +322,46 @@ const AdminMenus: React.FC = () => {
                        <option value="Featured">Featured with Icon</option>
                        <option value="Reference">Reference (PNG Style)</option>
                     </select>
+                    {form.location === 'footer' && !form.parent_id && (
+                       <p className="text-[9px] text-purple-400 font-bold uppercase tracking-tighter mt-2 ml-2">Top-level footer items act as column headers</p>
+                    )}
                  </div>
                  <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Priority Index</label>
                     <input type="number" value={form.position} onChange={e => setForm({...form, position: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold text-sm" />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Link to CMS Page</label>
+                  <select 
+                    onChange={e => {
+                      if (e.target.value) {
+                        const page = cmsPages.find(p => p.slug === e.target.value);
+                        if (page) {
+                          setForm({...form, label: page.title, url: `/cms/${page.slug}`});
+                        }
+                      }
+                    }}
+                    className="w-full bg-[#0f1115] border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-purple-500 transition-all font-bold appearance-none text-sm"
+                  >
+                    <option value="">-- Or Select CMS Page --</option>
+                    {cmsPages.map(page => (
+                      <option key={page.id} value={page.slug}>{page.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Status</label>
+                    <button 
+                      type="button"
+                      onClick={() => setForm({...form, is_active: !form.is_active})}
+                      className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl border transition-all ${form.is_active ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}
+                    >
+                      <span className="text-xs font-black uppercase tracking-widest">{form.is_active ? 'Active' : 'Disabled'}</span>
+                      <div className={`w-2 h-2 rounded-full ${form.is_active ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+                    </button>
                  </div>
               </div>
 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const TrustSection: React.FC = () => {
@@ -26,17 +25,21 @@ const TrustSection: React.FC = () => {
   ];
 
   return (
-    <section className="bg-white py-12 border-y">
-      <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 lg:grid-cols-4 gap-8">
-        {benefits.map((item, idx) => (
-          <div key={idx} className="flex flex-col items-center text-center space-y-2">
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-1">
-              {item.icon}
+    <section className="bg-white py-20 border-t border-slate-100">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
+          {benefits.map((item, idx) => (
+            <div key={idx} className="flex flex-col gap-4">
+              <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-xl flex items-center justify-center border border-slate-100">
+                {item.icon}
+              </div>
+              <div>
+                <h4 className="text-base font-semibold text-slate-900">{item.title}</h4>
+                <p className="mt-1 text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+              </div>
             </div>
-            <h4 className="font-bold text-slate-800 text-sm">{item.title}</h4>
-            <p className="text-gray-500 text-xs">{item.desc}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );
