@@ -17,7 +17,6 @@ interface VideoSectionProps {
   // New multi-video props
   sectionTitle?: string;
   videos?: VideoItem[];
-  autoPlayEnabled?: boolean;
   title?: string;
   subtitle?: string;
 }
@@ -28,14 +27,12 @@ const VideoSection: React.FC<VideoSectionProps> = ({
   showLabel = true,
   sectionTitle = '',
   videos = [],
-  autoPlayEnabled = true,
   title,
   subtitle
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(autoPlayEnabled);
   const [progress, setProgress] = useState(0);
   const progressInterval = useRef<any>(null);
 
@@ -52,19 +49,17 @@ const VideoSection: React.FC<VideoSectionProps> = ({
   if (effectiveVideos.length === 0) return null;
 
   const handleItemHover = useCallback((index: number) => {
-    if (!autoPlay) return;
     setActiveIndex(index);
     setIsPlaying(true);
     setProgress(0);
-  }, [autoPlay]);
+  }, []);
 
   const handleItemLeave = useCallback(() => {
-    if (!autoPlay) return;
     setIsPlaying(false);
     if (videoRef.current) {
       videoRef.current.pause();
     }
-  }, [autoPlay]);
+  }, []);
 
   const handleItemClick = useCallback((index: number) => {
     setActiveIndex(index);
@@ -162,25 +157,13 @@ const VideoSection: React.FC<VideoSectionProps> = ({
   // Multi-video layout with section title (matches reference design)
   return (
     <section className="max-w-7xl mx-auto px-4 py-16 md:py-24">
-      {/* Header Row: Title + Auto Play Toggle */}
+      {/* Header Row: Title */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
         {sectionTitle && (
           <h2 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tight leading-tight max-w-2xl">
             {sectionTitle}
           </h2>
         )}
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Auto Play</span>
-          <button
-            onClick={() => setAutoPlay(!autoPlay)}
-            className={`relative w-14 h-7 rounded-full transition-all duration-300 ${autoPlay ? 'bg-orange-500' : 'bg-slate-300'}`}
-            aria-label="Toggle auto play"
-          >
-            <span
-              className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${autoPlay ? 'left-7' : 'left-0.5'}`}
-            />
-          </button>
-        </div>
       </div>
 
       {/* Main Content: Video Player + List */}

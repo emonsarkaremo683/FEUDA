@@ -99,7 +99,7 @@ const AdminHomepageControl: React.FC = () => {
           try {
             const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
             if (Array.isArray(parsed)) {
-              setLayout(parsed);
+              setLayout(parsed.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
             } else {
               setDefaultLayout();
             }
@@ -178,16 +178,21 @@ const AdminHomepageControl: React.FC = () => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = layout.findIndex(i => i.id === active.id);
-    const newIndex = layout.findIndex(i => i.id === over.id);
+    // Create a sorted copy to match visual order for index calculation
+    const sortedLayout = [...layout].sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    const newLayout = arrayMove(layout, oldIndex, newIndex).map((item, i) => ({
-      ...item,
-      order: i + 1
-    }));
+    const oldIndex = sortedLayout.findIndex(i => i.id === active.id);
+    const newIndex = sortedLayout.findIndex(i => i.id === over.id);
 
-    setLayout(newLayout);
-    saveDraft(newLayout);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newLayout = arrayMove(sortedLayout, oldIndex, newIndex).map((item, i) => ({
+        ...item,
+        order: i + 1
+      }));
+
+      setLayout(newLayout);
+      saveDraft(newLayout);
+    }
   };
 
   /* ================= CRUD ================= */
@@ -279,9 +284,7 @@ const AdminHomepageControl: React.FC = () => {
           strategy={verticalListSortingStrategy}
         >
           <div className="max-w-4xl mx-auto space-y-4">
-            {[...layout]
-              .sort((a, b) => a.order - b.order)
-              .map(section => (
+            {layout.map(section => (
                 <SortableItem key={section.id} section={section}>
                   <div className="bg-[#161920] p-6 rounded-3xl flex justify-between items-center">
 
@@ -356,7 +359,7 @@ const AdminHomepageControl: React.FC = () => {
               <select
                 value={form.type}
                 onChange={(e) =>
-                  setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { sectionTitle: '', autoPlayEnabled: true, videos: [] } : {} })
+                  setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { sectionTitle: '', videos: [] } : {} })
                 }
                 className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold"
               >
@@ -378,7 +381,7 @@ const AdminHomepageControl: React.FC = () => {
                   onChange={e => {
                     const val = e.target.value;
                     const label = e.target.options[e.target.selectedIndex].text;
-                    const newData = val === 'Hero' ? { slides: [] } : {};
+                    const newData = val === 'Hero' ? { slides: [] } : val === 'StorySection' ? { sectionTitle: 'We Are Committed To Creating <br /> A Better World', stories: [] } : {};
                     setForm({...form, id: val, label: label, data: newData});
                   }}
                   className="w-full p-2 bg-black text-white rounded-lg border border-white/10"
@@ -495,6 +498,113 @@ const AdminHomepageControl: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {form.id === 'StorySection' && (
+                  <div className="space-y-4 border-t border-white/5 pt-4">
+                    <div className="border border-purple-500/30 rounded-xl p-4 space-y-3 bg-purple-500/5">
+                      <h5 className="text-xs font-black uppercase text-purple-400 tracking-widest">Section Title</h5>
+                      <input 
+                        placeholder="Section Title (HTML allowed)" 
+                        className="w-full p-3 bg-black text-white rounded-lg border border-white/10 text-sm font-bold"
+                        value={form.data?.sectionTitle || ''}
+                        onChange={e => setForm({...form, data: { ...form.data, sectionTitle: e.target.value }})}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <h5 className="text-xs font-black uppercase text-purple-400">Manage Stories</h5>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const stories = form.data?.stories || [];
+                          setForm({
+                            ...form,
+                            data: {
+                              ...form.data,
+                              stories: [...stories, { id: Date.now(), video: '', poster: '', title: '' }]
+                            }
+                          });
+                        }}
+                        className="text-[10px] bg-purple-600 px-2 py-1 rounded font-bold uppercase"
+                      >
+                        + Add Story
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                      {(form.data?.stories || []).map((story: any, idx: number) => (
+                        <div key={story.id} className="p-4 bg-black/40 rounded-xl space-y-2 relative">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const stories = [...form.data.stories];
+                              stories.splice(idx, 1);
+                              setForm({...form, data: { ...form.data, stories }});
+                            }}
+                            className="absolute top-2 right-2 text-red-500 font-bold"
+                          >
+                            ×
+                          </button>
+                          
+                          <input 
+                            placeholder="Title" 
+                            className="w-full p-2 bg-black text-xs border border-white/10 rounded" 
+                            value={story.title} 
+                            onChange={e => {
+                              const stories = [...form.data.stories];
+                              stories[idx].title = e.target.value;
+                              setForm({...form, data: { ...form.data, stories }});
+                            }}
+                          />
+                          
+                          <div className="flex gap-2">
+                            <input 
+                              placeholder="Video URL (.mp4)" 
+                              className="flex-1 p-2 bg-black text-xs border border-white/10 rounded" 
+                              value={story.video} 
+                              onChange={e => {
+                                const stories = [...form.data.stories];
+                                stories[idx].video = e.target.value;
+                                setForm({...form, data: { ...form.data, stories }});
+                              }}
+                            />
+                            <FileUploader 
+                              token={token} 
+                              label="↑" 
+                              onUploadSuccess={(url) => {
+                                const stories = [...form.data.stories];
+                                stories[idx].video = url;
+                                setForm({...form, data: { ...form.data, stories }});
+                              }} 
+                            />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input 
+                              placeholder="Poster Image URL (Optional)" 
+                              className="flex-1 p-2 bg-black text-xs border border-white/10 rounded" 
+                              value={story.poster || ''} 
+                              onChange={e => {
+                                const stories = [...form.data.stories];
+                                stories[idx].poster = e.target.value;
+                                setForm({...form, data: { ...form.data, stories }});
+                              }}
+                            />
+                            <FileUploader 
+                              token={token} 
+                              label="↑" 
+                              onUploadSuccess={(url) => {
+                                const stories = [...form.data.stories];
+                                stories[idx].poster = url;
+                                setForm({...form, data: { ...form.data, stories }});
+                              }} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -511,19 +621,7 @@ const AdminHomepageControl: React.FC = () => {
                   />
                 </div>
 
-                {/* Auto Play Toggle */}
-                <div className="flex items-center justify-between py-3 border-b border-white/5">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Auto Play on Hover</label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={form.data?.autoPlayEnabled ?? true} 
-                      onChange={e => setForm({...form, data: { ...form.data, autoPlayEnabled: e.target.checked }})} 
-                    />
-                    <div className="w-11 h-6 bg-slate-700 peer-checked:bg-orange-500 rounded-full transition-colors duration-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                  </label>
-                </div>
+
 
                 {/* Video Items CRUD */}
                 <div className="space-y-4 border-t border-white/5 pt-4">

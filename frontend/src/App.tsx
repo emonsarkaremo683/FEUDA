@@ -43,6 +43,7 @@ const AdminAnalytics = lazy(() => import('./admin/pages/AdminAnalytics'));
 const AdminCategories = lazy(() => import('./admin/pages/AdminCategories'));
 const AdminCMS = lazy(() => import('./admin/pages/AdminCMS'));
 const AdminMenus = lazy(() => import('./admin/pages/AdminMenus'));
+const AdminAnnouncements = lazy(() => import('./admin/pages/AdminAnnouncements'));
 import AdminHomepageControl from './admin/pages/AdminHomepageControl';
 const AdminPayments = lazy(() => import('./admin/pages/AdminPayments'));
 const AdminDevices = lazy(() => import('./admin/pages/AdminDevices'));

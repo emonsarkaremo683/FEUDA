@@ -12,6 +12,8 @@ interface AppContextType {
   refreshSocialLinks: () => Promise<void>;
   cmsPages: any[];
   refreshCmsPages: () => Promise<void>;
+  announcements: any[];
+  refreshAnnouncements: () => Promise<void>;
   categories: any[];
   refreshCategories: () => Promise<void>;
   cart: CartItem[];
@@ -57,6 +59,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [menus, setMenus] = useState<MenuItem[]>([]);
   const [socialLinks, setSocialLinks] = useState<any[]>([]);
   const [cmsPages, setCmsPages] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -172,6 +175,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     refreshCmsPages();
   }, [refreshCmsPages]);
+
+  const refreshAnnouncements = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/announcements');
+      if (response.ok) {
+        const data = await response.json();
+        setAnnouncements(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {}
+  }, []);
+
+  useEffect(() => {
+    refreshAnnouncements();
+  }, [refreshAnnouncements]);
 
   useEffect(() => {
     localStorage.setItem('fauda_device', selectedDevice);
@@ -374,6 +391,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       products, categories, menus, refreshMenus, refreshCategories,
       socialLinks, refreshSocialLinks,
       cmsPages, refreshCmsPages,
+      announcements, refreshAnnouncements,
       cart, wishlist, orders, user, token, selectedDevice, setSelectedDevice, rememberMe, setRememberMe,
       addToCart, buyNow, updateCartQuantity, removeFromCart, clearCart, placeOrder,
       login, socialLogin: () => {}, logout, updateProfile, addAddress, removeAddress, updateOrderStatus,

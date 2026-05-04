@@ -209,6 +209,15 @@ async function startServer() {
         name VARCHAR(100) NOT NULL UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS announcements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        message VARCHAR(255) NOT NULL,
+        url VARCHAR(255),
+        is_active BOOLEAN DEFAULT TRUE,
+        position INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `;
 
   try {
@@ -252,6 +261,17 @@ async function startServer() {
         ('All Products', '/category/all', 'footer', 1, 'Shop'),
         ('Clear Cases', '/category/clear-cases', 'footer', 2, 'Shop'),
         ('MagSafe', '/category/magsafe', 'footer', 3, 'Shop');
+      `);
+    }
+
+    const [announcementsCount]: any = await pool.query('SELECT COUNT(*) as count FROM announcements');
+    if (announcementsCount[0].count === 0) {
+      console.log('🌱 [Seeding] Populating Announcements...');
+      await pool.query(`
+        INSERT IGNORE INTO announcements (message, url, position) VALUES
+        ('FREE SHIPPING ON ALL ORDERS OVER $50', NULL, 1),
+        ('20% OFF YOUR FIRST ORDER WITH CODE: WELCOME20', NULL, 2),
+        ('NEW MAGSAFE CASES JUST DROPPED - SHOP NOW', '/category/magsafe', 3);
       `);
     }
   } catch (err) { console.warn(`⚠️ [Obsidian Warning] Schema error: ${err.message}`); }
@@ -605,6 +625,30 @@ async function startServer() {
   app.delete('/api/devices/:name', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     await pool.query('DELETE FROM devices WHERE name = ?', [req.params.name]);
     res.json({ message: 'Hardware Spec Purged' });
+  });
+
+  // --- ANNOUNCEMENTS ---
+  app.get('/api/announcements', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM announcements WHERE is_active = TRUE ORDER BY position ASC');
+    res.json(rows);
+  });
+  app.get('/api/announcements/all', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM announcements ORDER BY position ASC');
+    res.json(rows);
+  });
+  app.post('/api/announcements', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const { message, url, position, is_active } = req.body;
+    const [r]: any = await pool.query('INSERT INTO announcements (message, url, position, is_active) VALUES (?, ?, ?, ?)', [message, url || null, position || 0, is_active ?? true]);
+    res.json({ id: r.insertId, message: 'Announcement created' });
+  });
+  app.put('/api/announcements/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const { message, url, position, is_active } = req.body;
+    await pool.query('UPDATE announcements SET message=?, url=?, position=?, is_active=? WHERE id=?', [message, url || null, position || 0, is_active ?? true, req.params.id]);
+    res.json({ message: 'Announcement updated' });
+  });
+  app.delete('/api/announcements/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    await pool.query('DELETE FROM announcements WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Announcement deleted' });
   });
 
   // PUT update menu item

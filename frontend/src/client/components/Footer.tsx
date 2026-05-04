@@ -154,9 +154,12 @@ const Footer: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24">
+        <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs leading-5 text-slate-400">
             &copy; {new Date().getFullYear()} FEUDA, Inc. All rights reserved.
+          </p>
+          <p className="text-xs leading-5 text-slate-400 font-medium">
+            Developed by <span className="text-slate-300">Elite Tech Inc</span>
           </p>
         </div>
       </div>
