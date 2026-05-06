@@ -11,7 +11,7 @@ interface CMSPage {
 }
 
 const AdminCMS: React.FC = () => {
-  const { token, refreshCmsPages } = useApp();
+  const { token, refreshCmsPages, showToast } = useApp();
   const [pages, setPages] = useState<CMSPage[]>([]);
   const [selectedPage, setSelectedPage] = useState<CMSPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,9 @@ const AdminCMS: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
 
   const fetchPages = () => {
-    fetch('/api/cms')
+    fetch('/api/cms', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => {
         setPages(Array.isArray(data) ? data : []);
@@ -32,8 +34,8 @@ const AdminCMS: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPages();
-  }, []);
+    if (token) fetchPages();
+  }, [token]);
 
   const handleUpdate = () => {
     if (!selectedPage) return;
@@ -49,9 +51,9 @@ const AdminCMS: React.FC = () => {
       .then(() => {
         fetchPages();
         refreshCmsPages();
-        alert('Content Repository Synchronized.');
+        showToast('Content Repository Synchronized');
       })
-      .catch(err => alert('Sync Failure: ' + err));
+      .catch(err => showToast('Sync Failure: ' + err));
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -74,8 +76,9 @@ const AdminCMS: React.FC = () => {
         setIsCreating(false);
         setNewTitle('');
         setSelectedPage(data);
+        showToast('Resource Node Initialized');
       })
-      .catch(err => alert('Creation failed: ' + err));
+      .catch(err => showToast('Creation failed: ' + err));
   };
 
   const handleDelete = (id: number) => {
@@ -88,8 +91,9 @@ const AdminCMS: React.FC = () => {
         fetchPages();
         refreshCmsPages();
         setSelectedPage(null);
+        showToast('Resource Node Purged');
       })
-      .catch(err => alert('Delete failed'));
+      .catch(err => showToast('Delete failed'));
   };
 
   return (

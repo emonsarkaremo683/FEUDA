@@ -16,6 +16,8 @@ interface AppContextType {
   refreshAnnouncements: () => Promise<void>;
   categories: any[];
   refreshCategories: () => Promise<void>;
+  theme: any;
+  refreshTheme: () => Promise<void>;
   cart: CartItem[];
   wishlist: string[];
   orders: Order[];
@@ -60,6 +62,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [socialLinks, setSocialLinks] = useState<any[]>([]);
   const [cmsPages, setCmsPages] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [theme, setTheme] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('fauda_theme');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
+  });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -189,6 +197,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     refreshAnnouncements();
   }, [refreshAnnouncements]);
+
+  const refreshTheme = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/cms/theme-settings');
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.content) {
+          const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+          setTheme(parsed);
+          localStorage.setItem('fauda_theme', JSON.stringify(parsed));
+          
+          // Apply to :root
+          const root = document.documentElement;
+          Object.keys(parsed).forEach(key => {
+            const value = parsed[key];
+            if (key.includes('Color') || key === 'primary' || key === 'accent' || key === 'background' || key === 'text' || key === 'card' || key === 'border') {
+               root.style.setProperty(`--theme-${key}`, value);
+            } else if (key.toLowerCase().includes('gradient')) {
+               root.style.setProperty(`--theme-${key}`, value);
+            }
+          });
+        }
+      }
+    } catch (err) {}
+  }, []);
+
+  useEffect(() => {
+    refreshTheme();
+  }, [refreshTheme]);
 
   useEffect(() => {
     localStorage.setItem('fauda_device', selectedDevice);
@@ -395,7 +432,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cart, wishlist, orders, user, token, selectedDevice, setSelectedDevice, rememberMe, setRememberMe,
       addToCart, buyNow, updateCartQuantity, removeFromCart, clearCart, placeOrder,
       login, socialLogin: () => {}, logout, updateProfile, addAddress, removeAddress, updateOrderStatus,
-      toggleWishlist, cartCount, wishlistCount, cartTotal, toast, showToast, refreshProducts
+      toggleWishlist, cartCount, wishlistCount, cartTotal, toast, showToast, refreshProducts, theme, refreshTheme
     }}>
       {children}
     </AppContext.Provider>

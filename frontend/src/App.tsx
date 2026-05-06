@@ -44,6 +44,7 @@ const AdminCategories = lazy(() => import('./admin/pages/AdminCategories'));
 const AdminCMS = lazy(() => import('./admin/pages/AdminCMS'));
 const AdminMenus = lazy(() => import('./admin/pages/AdminMenus'));
 const AdminAnnouncements = lazy(() => import('./admin/pages/AdminAnnouncements'));
+const AdminThemeControl = lazy(() => import('./admin/pages/AdminThemeControl'));
 import AdminHomepageControl from './admin/pages/AdminHomepageControl';
 const AdminPayments = lazy(() => import('./admin/pages/AdminPayments'));
 const AdminDevices = lazy(() => import('./admin/pages/AdminDevices'));
@@ -113,6 +114,7 @@ const AppRoutes: React.FC = () => {
               <Route path="cms" element={<AdminCMS />} />
               <Route path="menus" element={<AdminMenus />} />
               <Route path="payments" element={<AdminPayments />} />
+              <Route path="theme" element={<AdminThemeControl />} />
               <Route path="homepage" element={<AdminHomepageControl />} />
               <Route path="announcements" element={<AdminAnnouncements />} />
               <Route path="devices" element={<AdminDevices />} />

@@ -61,13 +61,14 @@ const SortableItem = ({ section, children }: any) => {
 
 /* ================= MAIN ================= */
 const AdminHomepageControl: React.FC = () => {
-  const { token, categories, refreshCategories } = useApp();
+  const { token, categories, refreshCategories, showToast } = useApp();
 
   const [layout, setLayout] = useState<LayoutSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -87,7 +88,9 @@ const AdminHomepageControl: React.FC = () => {
     const fetchLayout = async () => {
       try {
         // Try fetching draft first, fallback to live
-        let res = await fetch('/api/cms/homepage-layout-draft');
+        let res = await fetch('/api/cms/homepage-layout-draft', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         let data = await res.json();
         
         if (!data || data.title === 'Page Missing') {
@@ -117,8 +120,8 @@ const AdminHomepageControl: React.FC = () => {
       }
     };
 
-    fetchLayout();
-  }, []);
+    if (token) fetchLayout();
+  }, [token]);
 
   useEffect(() => {
     refreshCategories();
@@ -137,17 +140,28 @@ const AdminHomepageControl: React.FC = () => {
 
   /* ================= SAVE DRAFT ================= */
   const saveDraft = (updatedLayout = layout) => {
-    fetch('/api/cms/homepage-layout-draft', {
-      method: 'PUT', // Using PUT since we have an endpoint for that
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ 
-        title: 'Homepage Layout Configuration (Draft)',
-        content: JSON.stringify(updatedLayout)
-      })
-    });
+    if (saveTimeout) clearTimeout(saveTimeout);
+
+    const timeout = setTimeout(() => {
+      fetch('/api/cms/homepage-layout-draft', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          title: 'Homepage Layout Configuration (Draft)',
+          content: JSON.stringify(updatedLayout),
+          slug: 'homepage-layout-draft'
+        })
+      }).then(res => {
+        if (res.ok) {
+          showToast('Draft synchronized to cloud storage');
+        }
+      });
+    }, 1500);
+
+    setSaveTimeout(timeout);
   };
 
   /* ================= PUBLISH ================= */
@@ -162,13 +176,14 @@ const AdminHomepageControl: React.FC = () => {
       },
       body: JSON.stringify({ 
         title: 'Homepage Layout Configuration',
-        content: JSON.stringify(layout)
+        content: JSON.stringify(layout),
+        slug: 'homepage-layout'
       })
     }).then(res => {
       if (res.ok) {
-        alert('🚀 Homepage Published Successfully! It is now live for all users.');
+        showToast('🚀 Homepage Matrix Published Live');
       } else {
-        alert('❌ Publication Failed. Please check server logs.');
+        showToast('❌ Publication Pipeline Error');
       }
     });
   };
@@ -340,39 +355,98 @@ const AdminHomepageControl: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                value={form.label}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    label: e.target.value,
-                    id: isEditing
-                      ? form.id
-                      : e.target.value.replace(/\s+/g, '')
-                  })
-                }
-                placeholder="Section Label"
-                className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold"
-                required
-              />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Section Identity</label>
+                <input
+                  value={form.label}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      label: e.target.value,
+                      id: isEditing
+                        ? form.id
+                        : e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_')
+                    })
+                  }
+                  placeholder="e.g. Summer Collection"
+                  className="w-full p-4 bg-black text-white rounded-2xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold shadow-inner"
+                  required
+                />
+              </div>
 
-              <select
-                value={form.type}
-                onChange={(e) =>
-                  setForm({ ...form, type: e.target.value as any, data: e.target.value === 'video' ? { sectionTitle: '', videos: [] } : {} })
-                }
-                className="w-full p-3 bg-black text-white rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold"
-              >
-                <option value="component">System Component</option>
-                <option value="video">Video Section</option>
-                <option value="banner">Static Banner</option>
-                <option value="category">Category Highlight</option>
-                <option value="featured_products">Featured Products Grid</option>
-                <option value="flash_sale">Flash Sale Banner</option>
-                <option value="newsletter">Newsletter Signup</option>
-                <option value="html">Custom HTML</option>
-              </select>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Node Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => {
+                    const type = e.target.value as any;
+                    let data = {};
+                    if (type === 'video') data = { sectionTitle: '', videos: [] };
+                    if (type === 'newsletter') data = { title: 'Join the Inner Circle', subtitle: 'Get early access to exclusive drops and obsidian-tier rewards.' };
+                    if (type === 'featured_products') data = { title: 'Obsidian Selection', category: 'all', limit: 4 };
+                    setForm({ ...form, type, data });
+                  }}
+                  className="w-full p-4 bg-black text-white rounded-2xl border border-white/10 focus:border-purple-500 outline-none transition-all text-sm font-bold appearance-none shadow-inner"
+                >
+                  <option value="component">System Component</option>
+                  <option value="video">Video Section</option>
+                  <option value="banner">Static Banner</option>
+                  <option value="category">Category Highlight</option>
+                  <option value="featured_products">Featured Products Grid</option>
+                  <option value="flash_sale">Flash Sale Banner</option>
+                  <option value="newsletter">Newsletter Signup</option>
+                  <option value="html">Custom HTML</option>
+                </select>
+              </div>
             </div>
+
+            {form.type === 'featured_products' && (
+              <div className="space-y-4 border-t border-white/5 pt-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Grid Title</label>
+                     <input 
+                       className="w-full p-3 bg-black text-white rounded-lg border border-white/10 text-xs font-bold"
+                       value={form.data?.title || ''}
+                       onChange={e => setForm({...form, data: { ...form.data, title: e.target.value }})}
+                       placeholder="e.g. Best Sellers"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Source Category</label>
+                     <select 
+                       value={form.data?.category || 'all'} 
+                       onChange={e => setForm({...form, data: { ...form.data, category: e.target.value }})}
+                       className="w-full p-3 bg-black text-white rounded-lg border border-white/10 text-xs font-bold"
+                     >
+                       <option value="all">All Products</option>
+                       {categories.map((cat: string) => <option key={cat} value={cat}>{cat}</option>)}
+                     </select>
+                   </div>
+                 </div>
+              </div>
+            )}
+
+            {form.type === 'newsletter' && (
+              <div className="space-y-4 border-t border-white/5 pt-4">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Hero Headline</label>
+                   <input 
+                     className="w-full p-3 bg-black text-white rounded-lg border border-white/10 text-xs font-bold"
+                     value={form.data?.title || ''}
+                     onChange={e => setForm({...form, data: { ...form.data, title: e.target.value }})}
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Subtext Logic</label>
+                   <textarea 
+                     className="w-full p-3 bg-black text-white rounded-lg border border-white/10 text-xs font-bold h-20"
+                     value={form.data?.subtitle || ''}
+                     onChange={e => setForm({...form, data: { ...form.data, subtitle: e.target.value }})}
+                   />
+                 </div>
+              </div>
+            )}
 
             {form.type === 'component' && (
               <div className="space-y-4">
@@ -813,14 +887,18 @@ const AdminHomepageControl: React.FC = () => {
               />
             )}
 
-            <div className="flex items-center gap-2">
-              <input 
-                type="checkbox" 
-                checked={form.visible} 
-                onChange={e => setForm({...form, visible: e.target.checked})} 
-                id="visible"
-              />
-              <label htmlFor="visible">Visible on Site</label>
+            <div className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${form.visible ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                <label htmlFor="visible" className="text-xs font-black uppercase tracking-widest text-slate-400 cursor-pointer select-none">Live Visibility</label>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setForm({...form, visible: !form.visible})}
+                className={`relative w-12 h-6 rounded-full transition-all duration-500 ${form.visible ? 'bg-purple-600' : 'bg-slate-800'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-500 shadow-md ${form.visible ? 'left-7' : 'left-1'}`} />
+              </button>
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 pt-4">

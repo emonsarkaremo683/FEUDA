@@ -10,17 +10,18 @@ interface MenuItem {
   position: number;
   parent_id: number | null;
   layout_style: string;
+  is_active: boolean;
 }
 
 const AdminMenus: React.FC = () => {
-  const { token, refreshMenus, cmsPages } = useApp();
+  const { token, refreshMenus, cmsPages, showToast } = useApp();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [socials, setSocials] = useState<any[]>([]);
   const [showSocialModal, setShowSocialModal] = useState(false);
-  const [socialForm, setSocialForm] = useState({ platform: '', url: '', icon: '', position: 0 });
+  const [socialForm, setSocialForm] = useState({ platform: '', url: '', icon: '', position: 0, is_active: true });
   const [editingSocial, setEditingSocial] = useState<number | null>(null);
   
   const initialForm = { 
@@ -38,20 +39,28 @@ const AdminMenus: React.FC = () => {
     fetch('/api/menus')
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => setItems(Array.isArray(data) ? data : []))
-      .catch(err => console.error('Menus Load Failed:', err));
+      .catch(err => {
+        console.error('Menus Load Failed:', err);
+        showToast('Failed to synchronize navigation matrix');
+      });
   };
 
   const fetchSocials = () => {
-    fetch('/api/social-links')
+    fetch('/api/social-links/all', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
       .then(res => res.json())
       .then(data => setSocials(data))
-      .catch(err => console.error('Socials Load Failed:', err));
+      .catch(err => {
+        console.error('Socials Load Failed:', err);
+        showToast('Social link synchronization failure');
+      });
   };
 
   useEffect(() => {
     fetchMenus();
     fetchSocials();
-  }, []);
+  }, [token]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,13 +71,21 @@ const AdminMenus: React.FC = () => {
       method: method,
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(form)
-    }).then(() => {
-      fetchMenus();
-      refreshMenus();
-      setShowModal(false);
-      setForm(initialForm);
-      setIsEditing(false);
-    });
+    })
+    .then(async res => {
+      if (res.ok) {
+        showToast(isEditing ? 'Navigation node updated' : 'New node initialized');
+        fetchMenus();
+        refreshMenus();
+        setShowModal(false);
+        setForm(initialForm);
+        setIsEditing(false);
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Mutation failed');
+      }
+    })
+    .catch(() => showToast('Network sync failure'));
   };
 
   const handleEdit = (item: MenuItem) => {
@@ -79,7 +96,7 @@ const AdminMenus: React.FC = () => {
       position: item.position,
       parent_id: item.parent_id,
       layout_style: item.layout_style || 'Default',
-      is_active: item.is_active ?? true
+      is_active: item.is_active
     });
     setCurrentId(item.id);
     setIsEditing(true);
@@ -91,9 +108,14 @@ const AdminMenus: React.FC = () => {
     fetch(`/api/menus/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
-    }).then(() => {
-        fetchMenus();
-        refreshMenus();
+    }).then(res => {
+        if (res.ok) {
+          showToast('Node purged from matrix');
+          fetchMenus();
+          refreshMenus();
+        } else {
+          showToast('Purge operation failed');
+        }
     });
   };
 
@@ -115,11 +137,17 @@ const AdminMenus: React.FC = () => {
       method,
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(socialForm)
-    }).then(() => {
-      fetchSocials();
-      setShowSocialModal(false);
-      setSocialForm({ platform: '', url: '', icon: '', position: 0 });
-      setEditingSocial(null);
+    }).then(async res => {
+      if (res.ok) {
+        showToast('Social link synchronized');
+        fetchSocials();
+        setShowSocialModal(false);
+        setSocialForm({ platform: '', url: '', icon: '', position: 0, is_active: true });
+        setEditingSocial(null);
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Social sync failed');
+      }
     });
   };
 
@@ -128,7 +156,14 @@ const AdminMenus: React.FC = () => {
     fetch(`/api/social-links/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
-    }).then(fetchSocials);
+    }).then(res => {
+      if (res.ok) {
+        showToast('Social link purged');
+        fetchSocials();
+      } else {
+        showToast('Delete operation failed');
+      }
+    });
   };
 
   return (
@@ -339,8 +374,10 @@ const AdminMenus: React.FC = () => {
                     onChange={e => {
                       if (e.target.value) {
                         const page = cmsPages.find(p => p.slug === e.target.value);
-                        if (page) {
+                        if (page && !isEditing) {
                           setForm({...form, label: page.title, url: `/cms/${page.slug}`});
+                        } else if (page && isEditing) {
+                          setForm({...form, url: `/cms/${page.slug}`});
                         }
                       }
                     }}

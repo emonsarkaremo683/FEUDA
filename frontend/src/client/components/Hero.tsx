@@ -55,7 +55,7 @@ const Hero: React.FC<HeroProps> = ({ slides = defaultSlides }) => {
   }, [slides]);
 
   return (
-    <section className="relative min-h-[500px] sm:min-h-[600px] h-[80vh] sm:h-screen w-full bg-[#050A30] overflow-hidden group">
+    <section className="relative min-h-[500px] sm:min-h-[600px] h-[80vh] sm:h-screen w-full overflow-hidden group" style={{ background: 'var(--theme-background, #050A30)' }}>
       {slides.map((slide, index) => (
         <div 
           key={slide.id}
@@ -70,23 +70,23 @@ const Hero: React.FC<HeroProps> = ({ slides = defaultSlides }) => {
                alt={slide.title} 
                className="w-full h-full object-cover opacity-40 scale-105"
              />
-             <div className="absolute inset-0 bg-gradient-to-r from-[#050A30] via-[#050A30]/80 to-transparent"></div>
+             <div className="absolute inset-0" style={{ background: 'var(--theme-heroGradient, linear-gradient(to right, #050A30, rgba(5,10,48,0.8), transparent))' }}></div>
           </div>
 
           <div className="max-w-7xl mx-auto px-4 w-full h-full relative flex items-center">
             <div className={`space-y-6 max-w-xl transition-all duration-1000 transform ${index === currentSlide ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-              <span className={`inline-block px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase bg-gradient-to-r from-blue-900 to-purple-900 text-white border border-white/10`}>
+              <span className={`inline-block px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase text-white border border-white/10`} style={{ background: 'var(--theme-primaryGradient, linear-gradient(to right, #1e3a8a, #581c87))' }}>
                 {slide.badge}
               </span>
               <h1 className="text-4xl sm:text-7xl font-extrabold text-white leading-[1.1]">
                 {slide.title} <br/> 
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{slide.subtitle}</span>
+                <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'var(--theme-primaryGradient, linear-gradient(to right, #60a5fa, #a78bfa))' }}>{slide.subtitle}</span>
               </h1>
               <p className="text-gray-300 text-lg sm:text-xl max-w-md leading-relaxed">
                 {slide.desc}
               </p>
               <div className="flex flex-wrap gap-4 pt-4">
-                <Link to="/category/all" className="bg-gradient-to-r from-blue-700 via-purple-600 to-red-500 text-white px-8 py-4 rounded-full font-bold hover:shadow-lg hover:shadow-purple-500/20 transform hover:-translate-y-1 transition-all">
+                <Link to="/category/all" className="text-white px-8 py-4 rounded-full font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all shadow-purple-500/20" style={{ background: 'var(--theme-primaryGradient, linear-gradient(to right, #1d4ed8, #7c3aed, #dc2626))' }}>
                   Shop Collection
                 </Link>
                 <Link to="/about" className="bg-white/5 text-white backdrop-blur-sm border border-white/20 px-8 py-4 rounded-full font-bold hover:bg-white/10 transition-all">

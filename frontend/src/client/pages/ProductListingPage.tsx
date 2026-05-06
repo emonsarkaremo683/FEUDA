@@ -1,64 +1,87 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { useApp } from '../../context/AppContext';
+import { Product } from '../../types';
+
+const SkeletonCard = () => (
+  <div className="bg-[#161920]/5 rounded-[2rem] p-6 animate-pulse">
+    <div className="aspect-square bg-slate-200 rounded-2xl mb-6"></div>
+    <div className="h-4 bg-slate-200 rounded w-1/2 mb-4"></div>
+    <div className="h-6 bg-slate-200 rounded w-3/4 mb-4"></div>
+    <div className="h-6 bg-slate-200 rounded w-1/4"></div>
+  </div>
+);
 
 const ProductListingPage: React.FC = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('q');
+  const currentPage = parseInt(searchParams.get('page') || '1');
   
-  const { products, selectedDevice, setSelectedDevice, categories } = useApp();
+  const { selectedDevice, setSelectedDevice, categories } = useApp();
   const [sortBy, setSortBy] = useState('popular');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Sync internal filter with global device context
-  const filterModel = selectedDevice;
+  const [products, setProducts] = useState<Product[]>([]);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [loading, setLoading] = useState(true);
 
-  const filteredProducts = useMemo(() => {
-    let result = products;
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '12',
+        sortBy,
+        inStock: inStockOnly.toString(),
+      });
+
+      if (categoryId && categoryId !== 'all') params.append('category', categoryId);
+      if (searchQuery) params.append('q', searchQuery);
+
+      const res = await fetch(`/api/products?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const formatted = data.products.map((p: any) => ({
+          id: p.id.toString(),
+          name: p.name,
+          category: p.category,
+          price: parseFloat(p.price),
+          image: p.image_url,
+          images: [p.image_url],
+          modelCompatibility: p.model_compatibility || 'All Models',
+          description: p.description,
+          stock: p.stock,
+          isBestSeller: !!p.is_best_seller,
+          colors: p.colors ? JSON.parse(p.colors) : []
+        }));
+        setProducts(formatted);
+        setPagination(data.pagination);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [categoryId, searchQuery, currentPage, sortBy, inStockOnly]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handlePageChange = (page: number) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('page', page.toString());
+    setSearchParams(newParams);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
     
-    // 1. Primary Filter: Category OR Search
-    if (categoryId) {
-       // Category mode
-       if (categoryId !== 'all') {
-         result = result.filter(p => p.category.toLowerCase().replace(' ', '-') === categoryId);
-       }
-    } else if (searchQuery) {
-       // Search mode
-       const q = searchQuery.toLowerCase();
-       result = result.filter(p => 
-         p.name.toLowerCase().includes(q) || 
-         p.description.toLowerCase().includes(q) ||
-         p.category.toLowerCase().includes(q)
-       );
-    }
-
-    // 2. Compatibility Filter
-    if (filterModel !== 'all') {
-      result = result.filter(p => p.modelCompatibility.includes(filterModel));
-    }
-
-    // 3. Stock Filter
-    if (inStockOnly) {
-      result = result.filter(p => (p.stock === undefined || p.stock > 0));
-    }
-
-    // 4. Sort
-    if (sortBy === 'price-low') {
-      result = [...result].sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'price-high') {
-      result = [...result].sort((a, b) => b.price - a.price);
-    }
-
-    return result;
-  }, [products, categoryId, searchQuery, sortBy, filterModel, inStockOnly]);
-
   const pageTitle = categoryId 
     ? (categoryId === 'all' ? 'All Products' : categories.find(c => c.toLowerCase().replace(' ', '-') === categoryId) || categoryId)
-    : `Results for "${searchQuery}"`;
+    : (searchQuery ? `Results for "${searchQuery}"` : 'All Products');
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
@@ -82,12 +105,12 @@ const ProductListingPage: React.FC = () => {
            <svg className={`w-5 h-5 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
         </button>
 
-        {/* Sidebar Filters */}
-        <aside className={`w-full xl:w-64 space-y-10 xl:space-y-12 select-none ${showFilters ? 'block' : 'hidden xl:block'}`}>
+        {/* Sidebar Filters (Desktop) */}
+        <aside className="hidden xl:block w-64 space-y-12 select-none">
           {/* Categories */}
           <div>
-            <h4 className="font-black text-slate-900 mb-6 sm:mb-8 uppercase tracking-widest text-[10px]">Collection</h4>
-            <div className="space-y-4 sm:space-y-5">
+            <h4 className="font-black text-slate-900 mb-8 uppercase tracking-widest text-[10px]">Collection</h4>
+            <div className="space-y-5">
               {categories.map(cat => {
                 const isActive = categoryId && (cat.toLowerCase().replace(' ', '-') === categoryId || (cat === 'All' && categoryId === 'all'));
                 return (
@@ -106,11 +129,11 @@ const ProductListingPage: React.FC = () => {
 
           {/* Model Compatibility */}
           <div>
-            <h4 className="font-black text-slate-900 mb-6 sm:mb-8 uppercase tracking-widest text-[10px]">Compatible With</h4>
-            <div className="space-y-4 sm:space-y-5">
+            <h4 className="font-black text-slate-900 mb-8 uppercase tracking-widest text-[10px]">Compatible With</h4>
+            <div className="space-y-5">
               {['iPhone 15 Pro Max', 'iPhone 15 Pro', 'iPhone 15', 'Samsung S24 Ultra', 'All Models'].map(model => {
                 const value = model === 'All Models' ? 'all' : model;
-                const isChecked = filterModel === value;
+                const isChecked = selectedDevice === value;
                 return (
                   <label key={model} className="flex items-center gap-4 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
@@ -138,7 +161,7 @@ const ProductListingPage: React.FC = () => {
 
           {/* Availability */}
           <div className="pt-8 border-t border-slate-100">
-            <h4 className="font-black text-slate-900 mb-6 sm:mb-8 uppercase tracking-widest text-[10px]">Preferences</h4>
+            <h4 className="font-black text-slate-900 mb-8 uppercase tracking-widest text-[10px]">Preferences</h4>
             <label className="flex items-center gap-4 cursor-pointer group">
               <div className="relative flex items-center justify-center">
                 <input 
@@ -165,6 +188,73 @@ const ProductListingPage: React.FC = () => {
             </label>
           </div>
         </aside>
+
+        {/* Mobile Filter Drawer */}
+        <div className={`fixed inset-0 z-[100] transition-opacity duration-300 xl:hidden ${showFilters ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFilters(false)} />
+          <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[3rem] p-8 pb-12 transition-transform duration-500 ease-out transform ${showFilters ? 'translate-y-0' : 'translate-y-full'}`}>
+             <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-10" />
+             <div className="space-y-10 max-h-[70vh] overflow-y-auto pr-2">
+                {/* Mobile Categories */}
+                <div>
+                  <h4 className="font-black text-slate-900 mb-6 uppercase tracking-widest text-[10px]">Collection</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {categories.map(cat => {
+                      const isActive = categoryId && (cat.toLowerCase().replace(' ', '-') === categoryId || (cat === 'All' && categoryId === 'all'));
+                      return (
+                        <Link 
+                          key={cat}
+                          to={cat === 'All' ? '/category/all' : `/category/${cat.toLowerCase().replace(' ', '-')}`}
+                          onClick={() => setShowFilters(false)}
+                          className={`px-6 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border ${isActive ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl shadow-indigo-500/20' : 'bg-slate-50 text-slate-500 border-transparent hover:bg-slate-100'}`}
+                        >
+                          {cat}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Mobile Device Filter */}
+                <div>
+                  <h4 className="font-black text-slate-900 mb-6 uppercase tracking-widest text-[10px]">Compatible With</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {['iPhone 15 Pro Max', 'iPhone 15 Pro', 'iPhone 15', 'Samsung S24 Ultra', 'All Models'].map(model => {
+                      const value = model === 'All Models' ? 'all' : model;
+                      const isChecked = selectedDevice === value;
+                      return (
+                        <button 
+                          key={model}
+                          onClick={() => setSelectedDevice(value)}
+                          className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${isChecked ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200'}`}
+                        >
+                          {model}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Mobile Stock */}
+                <div className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <span className="font-black text-slate-900 uppercase tracking-widest text-[10px]">In Stock Only</span>
+                  <button 
+                    onClick={() => setInStockOnly(!inStockOnly)}
+                    className={`w-12 h-6 rounded-full transition-all relative ${inStockOnly ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${inStockOnly ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <button 
+                  className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-slate-900/20"
+                  onClick={() => setShowFilters(false)}
+                >
+                  Apply Filters
+                </button>
+             </div>
+          </div>
+        </div>
 
         {/* Main Content */}
         <main className="flex-grow">
@@ -196,12 +286,52 @@ const ProductListingPage: React.FC = () => {
             </div>
           </div>
 
-          {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 animate-fade-in">
-              {filteredProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+              {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
             </div>
+          ) : products.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 animate-fade-in">
+                {products.map(product => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              {pagination.totalPages > 1 && (
+                <div className="mt-16 sm:mt-24 flex items-center justify-center gap-2">
+                  <button 
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  
+                  {[...Array(pagination.totalPages)].map((_, i) => {
+                    const p = i + 1;
+                    return (
+                      <button 
+                        key={p}
+                        onClick={() => handlePageChange(p)}
+                        className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-xs transition-all ${p === currentPage ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20' : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-900 hover:text-slate-900'}`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+
+                  <button 
+                    disabled={currentPage === pagination.totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="bg-white rounded-[3rem] py-32 sm:py-40 text-center border border-slate-50 shadow-sm animate-fade-in">
               <div className="w-24 h-24 sm:w-32 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8 text-slate-200">
@@ -212,7 +342,7 @@ const ProductListingPage: React.FC = () => {
               <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">No results found.</h3>
               <p className="text-slate-400 mt-4 max-w-xs mx-auto text-sm">We couldn't find matches. Try adjusting your filters or search terms.</p>
               <button 
-                onClick={() => {setSelectedDevice('all'); setInStockOnly(false);}}
+                onClick={() => {setSelectedDevice('all'); setInStockOnly(false); handlePageChange(1);}}
                 className="mt-10 bg-slate-900 text-white px-8 py-3.5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-500/10 active:scale-95"
               >
                 Reset Filters

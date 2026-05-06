@@ -57,22 +57,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Link to={`/product/${product.id}`} className="relative aspect-[4/5] overflow-hidden bg-slate-50">
+      <Link to={`/product/${product.id}`} className="relative aspect-[4/5] overflow-hidden bg-[#161920]">
         {/* Primary Image */}
-        <div className={`absolute inset-0 transition-opacity duration-700 ${isHovered && product.images && product.images[0] ? 'opacity-0' : 'opacity-100'}`}>
-          <LazyImage src={product.image} alt={product.name} className={`w-full h-full ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
+        <div className={`absolute inset-0 transition-opacity duration-700 p-6 ${isHovered && product.images && product.images[0] ? 'opacity-0' : 'opacity-100'}`}>
+          <LazyImage src={product.image} alt={product.name} className={`w-full h-full object-contain ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
         </div>
         {/* Hover Secondary Image (Check if exists) */}
         {product.images && product.images[0] && (
-          <div className={`absolute inset-0 transition-all duration-1000 transform ${isHovered ? 'opacity-100 scale-105' : 'opacity-0 scale-100'}`}>
-            <LazyImage src={product.images[0]} alt={product.name} className={`w-full h-full ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
+          <div className={`absolute inset-0 transition-all duration-1000 transform p-6 ${isHovered ? 'opacity-100 scale-105' : 'opacity-0 scale-100'}`}>
+            <LazyImage src={product.images[0]} alt={product.name} className={`w-full h-full object-contain ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
           </div>
         )}
 
         {/* Stock Out Overlay */}
         {isOutOfStock && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[2px] z-10">
-            <span className="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-2xl">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] z-10">
+            <span className="bg-white text-slate-900 text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-2xl">
               Stock Out
             </span>
           </div>
@@ -81,10 +81,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Floating Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
           {product.isBestSeller && (
-             <span className="bg-gradient-to-r from-purple-600 to-red-500 text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest shadow-lg">Limited</span>
+             <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest shadow-lg">Premium</span>
           )}
           {!isDirectlyCompatible && selectedDevice !== 'all' && (
-             <span className="bg-slate-900 text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest opacity-80 backdrop-blur-sm">Diff Model</span>
+             <span className="bg-slate-900/80 text-white text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest backdrop-blur-md border border-white/10">Diff Model</span>
           )}
         </div>
 
@@ -92,7 +92,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <button 
           onClick={handleToggleFav}
           className={`absolute top-4 right-4 p-2.5 rounded-2xl transition-all duration-300 z-10 shadow-lg ${
-            isFavorite ? 'bg-white text-red-500 scale-110' : 'bg-white/90 backdrop-blur-sm text-slate-400 hover:text-red-500 hover:bg-white'
+            isFavorite ? 'bg-red-500 text-white scale-110' : 'bg-white/10 backdrop-blur-xl text-white/60 hover:text-white border border-white/10'
           }`}
         >
           <svg className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,14 +101,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </button>
 
         {/* Quick look overlay - Now has Buy Now */}
-        <div className={`absolute bottom-0 inset-x-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-blue-900/50 to-transparent z-20`}>
+        <div className={`absolute bottom-0 inset-x-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-[#161920]/80 to-transparent z-20`}>
            <button 
              onClick={handleBuyNow}
              disabled={isOutOfStock}
              className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transition-all border border-white/20 ${
                isOutOfStock 
                ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
-               : 'bg-white text-blue-900 hover:bg-gradient-to-r hover:from-blue-700 hover:via-purple-600 hover:to-red-500 hover:text-white'
+               : 'bg-white text-slate-900 hover:bg-slate-100'
              }`}
            >
              {isOutOfStock ? 'Out of Stock' : 'Shop Now'}
@@ -118,7 +118,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
       <div className="p-6 flex flex-col flex-grow">
         <Link to={`/product/${product.id}`} className="block group/title mb-1">
-          <h3 className="font-black text-slate-900 text-lg leading-tight group-hover/title:text-blue-700 transition-colors line-clamp-2">
+          <h3 className="font-black text-slate-900 text-lg leading-tight group-hover/title:text-indigo-600 transition-colors line-clamp-2">
             {product.name}
           </h3>
         </Link>
@@ -130,14 +130,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         
         {/* Colors */}
         {product.colors && product.colors.length > 0 && (
-          <div className="flex gap-2 mb-4">
-            {product.colors.map(color => (
+          <div className="flex gap-2.5 mb-5">
+            {product.colors.map((color: any) => (
               <button
-                key={color}
-                onClick={(e) => handleColorSelect(e, color)}
-                className={`w-4 h-4 rounded-full border border-gray-200 shadow-sm transition-transform ${selectedColor === color ? 'scale-125 ring-2 ring-offset-1 ring-slate-300' : 'hover:scale-110'}`}
-                style={{ backgroundColor: color }}
-                aria-label={`Select color ${color}`}
+                key={color.name}
+                onClick={(e) => handleColorSelect(e, color.name)}
+                className={`w-4 h-4 rounded-full border border-slate-100 shadow-sm transition-transform ${selectedColor === color.name ? 'scale-125 ring-2 ring-offset-1 ring-slate-400' : 'hover:scale-110'}`}
+                style={{ backgroundColor: color.hex }}
+                aria-label={`Select color ${color.name}`}
               />
             ))}
           </div>
@@ -145,7 +145,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
         <div className="flex items-center justify-between pt-2 mt-auto">
           <div className="flex flex-col">
-            <span className="text-xl font-bold text-slate-900 tracking-tight">${product.price.toFixed(2)}</span>
+            <span className="text-xl font-bold text-slate-900 tracking-tight">৳{product.price.toLocaleString()}</span>
           </div>
           <button 
             onClick={handleAddToCart}
@@ -155,7 +155,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
                 : isAdded 
                   ? 'bg-green-500 text-white scale-95 shadow-green-200' 
-                  : 'bg-slate-100 text-blue-900 hover:bg-blue-900 hover:text-white active:scale-95'
+                  : 'bg-slate-100 text-slate-900 hover:bg-slate-900 hover:text-white active:scale-95'
             }`}
             aria-label="Add to cart"
           >

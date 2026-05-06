@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 
 interface FileUploaderProps {
   token: string | null;
@@ -9,6 +9,7 @@ interface FileUploaderProps {
 
 const FileUploader: React.FC<FileUploaderProps> = ({ token, onUploadSuccess, label = "Upload File" }) => {
   const [uploading, setUploading] = useState(false);
+  const uniqueId = useId();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,13 +44,13 @@ const FileUploader: React.FC<FileUploaderProps> = ({ token, onUploadSuccess, lab
     <div className="relative">
       <input
         type="file"
-        id="file-upload"
+        id={uniqueId}
         className="hidden"
         onChange={handleFileChange}
         accept="image/*,video/*"
       />
       <label
-        htmlFor="file-upload"
+        htmlFor={uniqueId}
         className={`inline-block px-4 py-2 bg-purple-600/20 border border-purple-500/30 text-purple-400 rounded-lg text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-purple-600 hover:text-white transition-all ${uploading ? 'opacity-50 cursor-wait' : ''}`}
       >
         {uploading ? 'Uploading...' : label}

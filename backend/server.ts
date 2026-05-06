@@ -7,6 +7,9 @@ import dotenv from "dotenv";
 import multer from "multer";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import bcrypt from "bcrypt";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
 import { fileURLToPath } from 'url';
 
 dotenv.config();
@@ -25,16 +28,81 @@ async function startServer() {
   const JWT_SECRET = process.env.JWT_SECRET || 'obsidian_core_secret_primary';
 
   const Security = {
-    hash: (password: string, salt = crypto.randomBytes(16).toString('hex')) => {
-      const hash = crypto.createHash('sha512').update(password + salt).digest('hex');
-      return `${salt}:${hash}`;
-    },
-    verify: (password: string, stored: string) => {
+    // Legacy support for SHA-512 migration
+    oldVerify: (password: string, stored: string) => {
       const [salt, hash] = stored.split(':');
       if (!salt || !hash) return false;
       return crypto.createHash('sha512').update(password + salt).digest('hex') === hash;
+    },
+    hash: async (password: string) => {
+      return await bcrypt.hash(password, 12);
+    },
+    verify: async (password: string, stored: string) => {
+      if (!stored.includes(':')) {
+        return await bcrypt.compare(password, stored);
+      }
+      return Security.oldVerify(password, stored);
     }
   };
+
+  const Schemas = {
+    register: z.object({
+      fullName: z.string().min(2, "Name too short"),
+      email: z.string().email("Invalid email address"),
+      password: z.string().min(8, "Password must be at least 8 characters"),
+    }),
+    login: z.object({
+      email: z.string().email("Invalid email address"),
+      password: z.string().min(1, "Password required"),
+    }),
+    product: z.object({
+      name: z.string().min(1),
+      category: z.string().min(1),
+      price: z.number().min(0),
+      stock: z.number().int().min(0),
+      description: z.string().optional(),
+      modelCompatibility: z.string().optional(),
+      imageUrl: z.string().optional(),
+      colors: z.array(z.any()).optional(),
+      specifications: z.array(z.any()).optional(),
+      isBestSeller: z.boolean().optional(),
+    }),
+    category: z.object({
+      name: z.string().min(1),
+      slug: z.string().min(1),
+      description: z.string().optional(),
+      imageUrl: z.string().optional(),
+    }),
+    cmsPage: z.object({
+      title: z.string().min(1),
+      content: z.string().min(1),
+      slug: z.string().min(1),
+    }),
+    menuItem: z.object({
+      label: z.string().min(1),
+      url: z.string().optional().nullable(),
+      parent_id: z.number().int().nullable().optional(),
+      position: z.number().int().optional(),
+      location: z.enum(['header', 'footer']).optional(),
+      layout_style: z.string().optional(),
+      is_active: z.boolean().optional(),
+    }),
+    socialLink: z.object({
+      platform: z.string().min(1),
+      url: z.string().url(),
+      icon: z.string().optional(),
+      position: z.number().int().optional(),
+      is_active: z.boolean().optional(),
+    })
+  };
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'Too many attempts, please try again after 15 minutes' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
   const uploadDir = path.join(process.cwd(), 'public', 'uploads');
   if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -218,6 +286,17 @@ async function startServer() {
         position INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    
+    CREATE TABLE IF NOT EXISTS reviews (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id INT NOT NULL,
+        user_id INT NULL,
+        user_name VARCHAR(255) NOT NULL,
+        rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    );
   `;
 
   try {
@@ -230,6 +309,7 @@ async function startServer() {
       await pool.query(`
         INSERT IGNORE INTO cms_pages (slug, title, content) VALUES
         ('homepage-layout', 'Homepage Layout', '[{"id":"Hero","label":"Hero Banner","type":"component","visible":true,"order":1},{"id":"TabbedProductShowcase","label":"Tabbed Showcase","type":"component","visible":true,"order":2},{"id":"StorySection","label":"Our Story","type":"component","visible":true,"order":3},{"id":"Categories","label":"Shop By Category","type":"component","visible":true,"order":4},{"id":"TrustSection","label":"Trust Badges","type":"component","visible":true,"order":5}]'),
+        ('theme-settings', 'Theme Customization', '{"primary":"#9333ea","accent":"#2563eb","background":"#0f172a","text":"#f8fafc","card":"#1e293b","border":"#334155","primaryGradient":"linear-gradient(to right, #9333ea, #db2777)","heroGradient":"radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)"}'),
         ('contact', 'Contact Us', '<h1>Contact Us</h1><p>Default content for Contact Us.</p>'),
         ('shipping-policy', 'Shipping Policy', '<h1>Shipping Policy</h1><p>Default content for Shipping Policy.</p>'),
         ('returns-refunds', 'Returns & Refunds', '<h1>Returns & Refunds</h1><p>Default content for Returns & Refunds.</p>'),
@@ -243,7 +323,7 @@ async function startServer() {
     const [admins] = await pool.query('SELECT * FROM users WHERE role = "admin"');
     if (admins.length === 0) {
       await pool.query('INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-        ['Root Admin', 'admin@feuda.com', Security.hash('admin123'), 'admin']);
+        ['Root Admin', 'admin@feuda.com', await Security.hash('admin123'), 'admin']);
     }
 
     const [footerMenus]: any = await pool.query('SELECT COUNT(*) as count FROM menu_items WHERE location = "footer"');
@@ -299,32 +379,55 @@ async function startServer() {
     res.json(users[0]);
   });
 
-  app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    const [users]: any = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (users.length === 0 || !Security.verify(password, users[0].password_hash))
-      return res.status(401).json({ error: 'Auth Failed' });
-    const user = users[0];
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role, fullName: user.full_name }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role } });
+  app.post('/api/login', authLimiter, async (req, res) => {
+    try {
+      const { email, password } = Schemas.login.parse(req.body);
+      const [users]: any = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+      
+      if (users.length === 0) return res.status(401).json({ error: 'Auth Failed' });
+      
+      const user = users[0];
+      const isOldFormat = user.password_hash.includes(':');
+      const isValid = isOldFormat 
+        ? Security.oldVerify(password, user.password_hash)
+        : await bcrypt.compare(password, user.password_hash);
+
+      if (!isValid) return res.status(401).json({ error: 'Auth Failed' });
+
+      // Migrate to bcrypt if legacy format detected
+      if (isOldFormat) {
+        const newHash = await Security.hash(password);
+        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
+      }
+
+      const token = jwt.sign({ id: user.id, email: user.email, role: user.role, fullName: user.full_name }, JWT_SECRET, { expiresIn: '24h' });
+      res.json({ token, user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role } });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
   });
 
-  app.post('/api/register', async (req, res) => {
-    const { fullName, email, password } = req.body;
-    if (!fullName || !email || !password) return res.status(400).json({ error: 'All fields required' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  app.post('/api/register', authLimiter, async (req, res) => {
     try {
+      const { fullName, email, password } = Schemas.register.parse(req.body);
+      
       const [existing]: any = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
       if (existing.length > 0) return res.status(409).json({ error: 'Email already registered' });
+      
       const [totalUsers]: any = await pool.query('SELECT COUNT(*) as count FROM users');
       const role = totalUsers[0].count === 0 ? 'admin' : 'user';
+      
+      const hashedPassword = await Security.hash(password);
       const [r]: any = await pool.query(
         'INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-        [fullName, email, Security.hash(password), role]
+        [fullName, email, hashedPassword, role]
       );
+      
       const token = jwt.sign({ id: r.insertId, email, role, fullName }, JWT_SECRET, { expiresIn: '24h' });
       res.status(201).json({ token, user: { id: r.insertId, email, fullName, role } });
     } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -340,27 +443,119 @@ async function startServer() {
 
   // --- PRODUCTS ---
   app.get('/api/products', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY id DESC');
-    res.json(rows);
+    const page = req.query.page ? parseInt(req.query.page as string) : null;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 12;
+    const search = req.query.search as string || req.query.q as string;
+    const category = req.query.category as string;
+    
+    const inStock = req.query.inStock === 'true';
+    const sortBy = req.query.sortBy as string || 'popular';
+    
+    let query = 'SELECT * FROM products WHERE 1=1';
+    let countQuery = 'SELECT COUNT(*) as total FROM products WHERE 1=1';
+    const params: any[] = [];
+
+    if (search) {
+      query += ' AND (name LIKE ? OR description LIKE ? OR category LIKE ?)';
+      countQuery += ' AND (name LIKE ? OR description LIKE ? OR category LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    if (category && category !== 'all') {
+      query += ' AND category = ?';
+      countQuery += ' AND category = ?';
+      params.push(category);
+    }
+
+    if (inStock) {
+      query += ' AND stock > 0';
+      countQuery += ' AND stock > 0';
+    }
+
+    if (sortBy === 'price-low') {
+      query += ' ORDER BY price ASC';
+    } else if (sortBy === 'price-high') {
+      query += ' ORDER BY price DESC';
+    } else {
+      query += ' ORDER BY id DESC';
+    }
+
+    try {
+      if (page !== null) {
+        const offset = (page - 1) * limit;
+        const [rows]: any = await pool.query(query + ' LIMIT ? OFFSET ?', [...params, limit, offset]);
+        const [totalRows]: any = await pool.query(countQuery, params);
+        
+        return res.json({
+          products: rows,
+          pagination: {
+            total: totalRows[0].total,
+            page,
+            limit,
+            totalPages: Math.ceil(totalRows[0].total / limit)
+          }
+        });
+      }
+
+      // Default: Return all (backward compatibility)
+      const [rows] = await pool.query(query, params);
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
   app.post('/api/products', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const p = req.body;
-    const [r]: any = await pool.query('INSERT INTO products (name,category,price,stock,description,model_compatibility,image_url,colors,specifications) VALUES (?,?,?,?,?,?,?,?,?)',
-      [p.name, p.category, p.price, p.stock, p.description, p.modelCompatibility, p.imageUrl, JSON.stringify(p.colors), JSON.stringify(p.specifications)]);
-    res.json({ id: r.insertId });
+    try {
+      const p = Schemas.product.parse(req.body);
+      const [r]: any = await pool.query('INSERT INTO products (name,category,price,stock,description,model_compatibility,image_url,colors,specifications) VALUES (?,?,?,?,?,?,?,?,?)',
+        [p.name, p.category, p.price, p.stock, p.description, p.modelCompatibility, p.imageUrl, JSON.stringify(p.colors || []), JSON.stringify(p.specifications || [])]);
+      res.json({ id: r.insertId });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.put('/api/products/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const p = req.body;
-    await pool.query(
-      'UPDATE products SET name=?, category=?, price=?, stock=?, description=?, model_compatibility=?, image_url=?, colors=?, specifications=?, is_best_seller=? WHERE id=?',
-      [p.name, p.category, p.price, p.stock, p.description, p.modelCompatibility, p.imageUrl,
-       JSON.stringify(p.colors || []), JSON.stringify(p.specifications || []), p.isBestSeller || false, req.params.id]
-    );
-    res.json({ message: 'Product Updated' });
+    try {
+      const p = Schemas.product.parse(req.body);
+      await pool.query(
+        'UPDATE products SET name=?, category=?, price=?, stock=?, description=?, model_compatibility=?, image_url=?, colors=?, specifications=?, is_best_seller=? WHERE id=?',
+        [p.name, p.category, p.price, p.stock, p.description, p.modelCompatibility, p.imageUrl,
+         JSON.stringify(p.colors || []), JSON.stringify(p.specifications || []), p.isBestSeller || false, req.params.id]
+      );
+      res.json({ message: 'Product Updated' });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.delete('/api/products/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.json({ message: 'Product Deleted' });
+  });
+
+  // --- REVIEWS ---
+  app.get('/api/reviews/:productId', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC', [req.params.productId]);
+    res.json(rows);
+  });
+
+  app.post('/api/reviews', Gatekeeper.authenticate, async (req: any, res) => {
+    const { productId, rating, comment } = req.body;
+    const userId = req.user.id;
+    const userName = req.user.fullName;
+    
+    if (!productId || !rating) return res.status(400).json({ error: 'Product ID and rating required' });
+    
+    try {
+      const [r]: any = await pool.query(
+        'INSERT INTO reviews (product_id, user_id, user_name, rating, comment) VALUES (?, ?, ?, ?, ?)',
+        [productId, userId, userName, rating, comment]
+      );
+      res.status(201).json({ id: r.insertId, message: 'Review Posted' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // --- ORDERS ---
@@ -471,22 +666,34 @@ async function startServer() {
   // --- CATEGORIES & CMS & MENUS ---
   app.get('/api/categories', async (req, res) => { res.json((await pool.query('SELECT * FROM categories'))[0]); });
   app.post('/api/categories', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { name, slug, description, imageUrl } = req.body;
-    const [r]: any = await pool.query('INSERT INTO categories (name, slug, description, image_url) VALUES (?, ?, ?, ?)', [name, slug, description, imageUrl]);
-    res.json({ id: r.insertId });
+    try {
+      const { name, slug, description, imageUrl } = Schemas.category.parse(req.body);
+      const [r]: any = await pool.query('INSERT INTO categories (name, slug, description, image_url) VALUES (?, ?, ?, ?)', [name, slug, description, imageUrl]);
+      res.json({ id: r.insertId });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.put('/api/categories/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { name, slug, description, imageUrl } = req.body;
-    await pool.query('UPDATE categories SET name=?, slug=?, description=?, image_url=? WHERE id=?',
-      [name, slug, description, imageUrl, req.params.id]);
-    res.json({ message: 'Category Updated' });
+    try {
+      const { name, slug, description, imageUrl } = Schemas.category.parse(req.body);
+      await pool.query('UPDATE categories SET name=?, slug=?, description=?, image_url=? WHERE id=?',
+        [name, slug, description, imageUrl, req.params.id]);
+      res.json({ message: 'Category Updated' });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.delete('/api/categories/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     await pool.query('DELETE FROM categories WHERE id = ?', [req.params.id]);
     res.json({ message: 'Category Cleared' });
   });
 
-  app.get('/api/cms', async (req, res) => { res.json((await pool.query('SELECT * FROM cms_pages'))[0]); });
+  app.get('/api/cms', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => { 
+    res.json((await pool.query('SELECT * FROM cms_pages'))[0]); 
+  });
   
   app.get('/api/cms/:slug', async (req, res) => {
     const [rows]: any = await pool.query('SELECT * FROM cms_pages WHERE slug = ?', [req.params.slug]);
@@ -495,32 +702,38 @@ async function startServer() {
 
   // Create new CMS page
   app.post('/api/cms', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { title, content, slug } = req.body;
     try {
+      const { title, content, slug } = Schemas.cmsPage.parse(req.body);
       const [r]: any = await pool.query('INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?)', [slug, title, content]);
       res.status(201).json({ id: r.insertId, message: 'Page Created' });
     } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
       res.status(409).json({ error: 'Slug must be unique' });
     }
   });
 
   // Unified CMS Update (Handles both creation/update by slug OR update by ID)
   app.put('/api/cms/:identifier', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { title, content, slug } = req.body;
-    const { identifier } = req.params;
+    try {
+      const { title, content, slug } = Schemas.cmsPage.parse(req.body);
+      const { identifier } = req.params;
 
-    if (!isNaN(Number(identifier))) {
-      // Identifier is an ID
-      await pool.query('UPDATE cms_pages SET title=?, content=?, slug=? WHERE id=?', 
-        [title, content, slug || identifier, identifier]);
-    } else {
-      // Identifier is a Slug
-      await pool.query(
-        'INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=?, content=?',
-        [identifier, title, content, title, content]
-      );
+      if (!isNaN(Number(identifier))) {
+        // Identifier is an ID
+        await pool.query('UPDATE cms_pages SET title=?, content=?, slug=? WHERE id=?', 
+          [title, content, slug || identifier, identifier]);
+      } else {
+        // Identifier is a Slug
+        await pool.query(
+          'INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=?, content=?',
+          [identifier, title, content, title, content]
+        );
+      }
+      res.json({ message: 'Content Synchronized' });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
     }
-    res.json({ message: 'Content Synchronized' });
   });
 
   app.delete('/api/cms/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
@@ -535,9 +748,15 @@ async function startServer() {
 
   app.get('/api/menus', async (req, res) => { res.json((await pool.query('SELECT * FROM menu_items ORDER BY position ASC'))[0]); });
   app.post('/api/menus', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { label, url, parent_id, position, location, layout_style } = req.body;
-    await pool.query('INSERT INTO menu_items (label, url, parent_id, position, location, layout_style) VALUES (?, ?, ?, ?, ?, ?)', [label, url, parent_id || null, position || 0, location || 'header', layout_style || 'Default']);
-    res.json({ message: 'Menu Item Synced' });
+    try {
+      const { label, url, parent_id, position, location, layout_style, is_active } = Schemas.menuItem.parse(req.body);
+      await pool.query('INSERT INTO menu_items (label, url, parent_id, position, location, layout_style, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+        [label, url, parent_id || null, position || 0, location || 'header', layout_style || 'Default', is_active ?? true]);
+      res.json({ message: 'Menu Item Synced' });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.delete('/api/menus/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     await pool.query('DELETE FROM menu_items WHERE id = ?', [req.params.id]);
@@ -598,15 +817,29 @@ async function startServer() {
     const [rows] = await pool.query('SELECT * FROM social_links WHERE is_active = 1 ORDER BY position ASC');
     res.json(rows);
   });
+  app.get('/api/social-links/all', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM social_links ORDER BY position ASC');
+    res.json(rows);
+  });
   app.post('/api/social-links', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { platform, url, icon, position } = req.body;
-    const [r]: any = await pool.query('INSERT INTO social_links (platform, url, icon, position) VALUES (?, ?, ?, ?)', [platform, url, icon, position || 0]);
-    res.json({ id: r.insertId });
+    try {
+      const { platform, url, icon, position, is_active } = Schemas.socialLink.parse(req.body);
+      const [r]: any = await pool.query('INSERT INTO social_links (platform, url, icon, position, is_active) VALUES (?, ?, ?, ?, ?)', [platform, url, icon, position || 0, is_active ?? true]);
+      res.json({ id: r.insertId });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.put('/api/social-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-    const { platform, url, icon, position, is_active } = req.body;
-    await pool.query('UPDATE social_links SET platform=?, url=?, icon=?, position=?, is_active=? WHERE id=?', [platform, url, icon, position, is_active ?? true, req.params.id]);
-    res.json({ message: 'Social Link Updated' });
+    try {
+      const { platform, url, icon, position, is_active } = Schemas.socialLink.parse(req.body);
+      await pool.query('UPDATE social_links SET platform=?, url=?, icon=?, position=?, is_active=? WHERE id=?', [platform, url, icon, position, is_active ?? true, req.params.id]);
+      res.json({ message: 'Social Link Updated' });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      res.status(500).json({ error: err.message });
+    }
   });
   app.delete('/api/social-links/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
     await pool.query('DELETE FROM social_links WHERE id = ?', [req.params.id]);
@@ -673,10 +906,10 @@ async function startServer() {
     const { currentPassword, newPassword } = req.body;
     const [users]: any = await pool.query('SELECT * FROM users WHERE id=?', [req.user.id]);
     if (users.length === 0) return res.status(404).json({ error: 'User not found' });
-    if (!Security.verify(currentPassword, users[0].password_hash))
+    if (!await Security.verify(currentPassword, users[0].password_hash))
       return res.status(401).json({ error: 'Current password is incorrect' });
     if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    await pool.query('UPDATE users SET password_hash=? WHERE id=?', [Security.hash(newPassword), req.user.id]);
+    await pool.query('UPDATE users SET password_hash=? WHERE id=?', [await Security.hash(newPassword), req.user.id]);
     res.json({ message: 'Password Changed' });
   });
 

@@ -8,7 +8,7 @@ import { ColorVariant } from '../../types';
 
 const ProductDetailPage: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
-  const { addToCart, toggleWishlist, wishlist, products } = useApp();
+  const { addToCart, toggleWishlist, wishlist, products, user, token, showToast } = useApp();
   const navigate = useNavigate();
   
   const product = products.find(p => p.id === productId);
@@ -17,6 +17,10 @@ const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
   const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(null);
+  
+  const [realReviews, setRealReviews] = useState<any[]>([]);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
   
   // Swipe State
   const [touchStart, setTouchStart] = useState(0);
@@ -28,6 +32,53 @@ const ProductDetailPage: React.FC = () => {
       setSelectedColor(product.colors[0]);
     }
   }, [product]);
+
+  const fetchReviews = async () => {
+    if (!productId) return;
+    try {
+      const res = await fetch(`/api/reviews/${productId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRealReviews(data);
+      }
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    fetchReviews();
+  }, [productId]);
+
+  const handlePostReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return showToast("Please login to post a review.");
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productId,
+          rating: newReview.rating,
+          comment: newReview.comment
+        })
+      });
+      if (res.ok) {
+        showToast("Review posted successfully!");
+        setNewReview({ rating: 5, comment: '' });
+        fetchReviews();
+      } else {
+        const error = await res.json();
+        showToast(error.error || "Failed to post review");
+      }
+    } catch (err) {
+      showToast("Connection error");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   if (!product) return <div className="p-20 text-center font-bold text-slate-400">Loading Product Matrix...</div>;
 
@@ -133,7 +184,7 @@ const ProductDetailPage: React.FC = () => {
               <button 
                 key={i}
                 onClick={() => setCurrentImageIndex(i)}
-                className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all p-2 bg-white ${currentImageIndex === i ? 'border-slate-900 shadow-lg' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all p-2 bg-[#161920] ${currentImageIndex === i ? 'border-indigo-600 shadow-lg shadow-indigo-500/20' : 'border-transparent opacity-30 hover:opacity-100'}`}
               >
                 <LazyImage src={img} alt={`Thumbnail ${i}`} className="w-full h-full object-contain" />
               </button>
@@ -175,14 +226,19 @@ const ProductDetailPage: React.FC = () => {
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Select Finish: <span className="text-slate-900">{selectedColor?.name}</span></h4>
               <div className="flex flex-wrap gap-4">
                 {product.colors.map((color, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={() => { setSelectedColor(color); setCurrentImageIndex(0); }}
-                    className={`w-12 h-12 rounded-2xl p-1 border-2 transition-all hover:scale-110 active:scale-95 ${selectedColor?.name === color.name ? 'border-slate-900 shadow-xl' : 'border-transparent'}`}
-                    title={color.name}
-                  >
-                    <div className="w-full h-full rounded-xl border border-black/5" style={{ backgroundColor: color.hex }} />
-                  </button>
+                  <div key={idx} className="relative group/swatch">
+                    <button 
+                      onClick={() => { setSelectedColor(color); setCurrentImageIndex(0); }}
+                      className={`w-10 h-10 rounded-full p-0.5 border-2 transition-all hover:scale-110 active:scale-95 ${selectedColor?.name === color.name ? 'border-slate-900 ring-2 ring-slate-900/10 ring-offset-2' : 'border-transparent hover:border-slate-300'}`}
+                    >
+                      <div className="w-full h-full rounded-full border border-black/5" style={{ backgroundColor: color.hex }} />
+                    </button>
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover/swatch:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                      {color.name}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900" />
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -260,33 +316,78 @@ const ProductDetailPage: React.FC = () => {
           </ul>
         )}
         {activeTab === 'reviews' && (
-          <div className="space-y-6 animate-fade-in max-w-4xl">
-            {product.reviews?.map(review => (
-              <div key={review.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                <div className="flex items-center justify-between mb-6">
+          <div className="space-y-12 animate-fade-in max-w-4xl">
+            {/* Review Submission Form */}
+            {user ? (
+              <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <h4 className="text-xl font-black text-slate-900 mb-6">Write a Review</h4>
+                <form onSubmit={handlePostReview} className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-900 font-black shadow-sm border border-slate-100">
-                      {review.user[0]}
-                    </div>
-                    <div>
-                      <p className="font-black text-slate-900 uppercase tracking-tight text-sm">{review.user}</p>
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{review.date}</p>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rating:</span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button 
+                          key={star}
+                          type="button"
+                          onClick={() => setNewReview({ ...newReview, rating: star })}
+                          className={`w-8 h-8 flex items-center justify-center transition-all ${newReview.rating >= star ? 'text-amber-400' : 'text-slate-200 hover:text-slate-300'}`}
+                        >
+                          <svg className="w-6 h-6 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex text-amber-400">
-                    {[...Array(5)].map((_, i) => (
-                      <svg key={i} className={`w-4 h-4 ${i < Math.floor(review.rating) ? 'fill-current' : 'text-slate-200'}`} viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-slate-600 font-medium leading-relaxed italic">"{review.comment}"</p>
+                  <textarea 
+                    value={newReview.comment}
+                    onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                    placeholder="Share your experience with this product..."
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-sm font-medium focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 min-h-[120px] transition-all"
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingReview}
+                    className="bg-slate-900 text-white px-10 py-4 rounded-full font-black uppercase tracking-widest text-[10px] hover:bg-indigo-600 transition-all disabled:opacity-50"
+                  >
+                    {isSubmittingReview ? 'Posting...' : 'Post Review'}
+                  </button>
+                </form>
               </div>
-            ))}
-            {(!product.reviews || product.reviews.length === 0) && (
-              <div className="text-center py-20 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
-                 <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-xs">No Reviews Recorded</p>
+            ) : (
+              <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200 text-center">
+                <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mb-4">You must be logged in to post a review</p>
+                <Link to="/auth/login" className="text-indigo-600 font-black uppercase tracking-widest text-[10px] hover:underline">Sign In Now</Link>
               </div>
             )}
+
+            <div className="space-y-6">
+              {realReviews.map(review => (
+                <div key={review.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-900 font-black shadow-sm border border-slate-100 uppercase">
+                        {review.user_name[0]}
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-900 uppercase tracking-tight text-sm">{review.user_name}</p>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{new Date(review.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <svg key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-slate-200'}`} viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-slate-600 font-medium leading-relaxed">"{review.comment}"</p>
+                </div>
+              ))}
+              {realReviews.length === 0 && (
+                <div className="text-center py-20 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
+                  <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-xs">No Reviews Recorded Yet</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
