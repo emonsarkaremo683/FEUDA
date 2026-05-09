@@ -22,106 +22,11 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'obsidian_core_secret_primary';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// --- SECURITY & UTILS ---
-const Security = {
-  oldVerify: (password: string, stored: string) => {
-    const [salt, hash] = stored.split(':');
-    if (!salt || !hash) return false;
-    return crypto.createHash('sha512').update(password + salt).digest('hex') === hash;
-  },
-  hash: async (password: string) => {
-    return await bcrypt.hash(password, 12);
-  },
-  verify: async (password: string, stored: string) => {
-    if (!stored.includes(':')) {
-      return await bcrypt.compare(password, stored);
-    }
-    return Security.oldVerify(password, stored);
-  }
-};
-
-const Schemas = {
-  register: z.object({
-    fullName: z.string().min(2, "Name too short"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-  }),
-  login: z.object({
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(1, "Password required"),
-  }),
-  product: z.object({
-    name: z.string().min(1),
-    category: z.string().min(1),
-    price: z.number().min(0),
-    stock: z.number().int().min(0),
-    description: z.string().optional(),
-    modelCompatibility: z.string().optional(),
-    imageUrl: z.string().optional(),
-    colors: z.array(z.any()).optional(),
-    specifications: z.array(z.any()).optional(),
-    isBestSeller: z.boolean().optional(),
-  }),
-  category: z.object({
-    name: z.string().min(1),
-    slug: z.string().min(1),
-    description: z.string().optional(),
-    imageUrl: z.string().optional(),
-  }),
-  cmsPage: z.object({
-    title: z.string().min(1),
-    content: z.string().min(1),
-    slug: z.string().min(1),
-  }),
-  menuItem: z.object({
-    label: z.string().min(1),
-    url: z.string().optional().nullable(),
-    parent_id: z.number().int().nullable().optional(),
-    position: z.number().int().optional(),
-    location: z.enum(['header', 'footer']).optional(),
-    layout_style: z.string().optional(),
-    is_active: z.boolean().optional(),
-  }),
-  socialLink: z.object({
-    platform: z.string().min(1),
-    url: z.string().url(),
-    icon: z.string().optional(),
-    position: z.number().int().optional(),
-    is_active: z.boolean().optional(),
-  })
-};
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Too many attempts, please try again after 15 minutes' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// --- STORAGE ---
-const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(uploadDir) && !process.env.VERCEL) {
-  try { fs.mkdirSync(uploadDir, { recursive: true }); } catch (e) {}
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, '/tmp'),
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
-
-// --- MIDDLEWARE ---
 app.use(cors({ origin: [FRONTEND_URL, 'http://localhost:5173', 'https://feuda.vercel.app', 'https://feuda-frontend.vercel.app'], credentials: true }));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
-// --- DATABASE ---
 const dbConfig = {
-  host: process.env.DB_HOST,
+  host: process.env.DB_HOST || '127.0.0.1', // Defaulting to localhost if not set
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'jeestore',
@@ -166,132 +71,43 @@ async function initializeDatabase() {
   } catch (err: any) { dbError = err.message; console.error(err); }
 }
 
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    db: dbInitialized ? 'connected' : 'connecting',
+    env: {
+      DB_HOST_SET: !!process.env.DB_HOST,
+      DB_HOST: process.env.DB_HOST || 'NOT SET (Defaults to 127.0.0.1)',
+      NODE_ENV: process.env.NODE_ENV
+    }
+  });
+});
+
 app.use(async (req, res, next) => {
+  if (req.path === '/api/health') return next();
   if (!dbInitialized) await initializeDatabase();
-  if (dbError) return res.status(500).json({ error: "Database Link Error", details: dbError });
+  if (dbError) return res.status(500).json({ error: "Database Link Error", details: dbError, detected_host: dbConfig.host });
   next();
 });
 
-const Gatekeeper = {
-  authenticate: (req: any, res: any, next: any) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-      if (err) return res.status(403).json({ error: 'Forbidden' });
-      req.user = user;
-      next();
-    });
-  },
-  adminOnly: (req: any, res: any, next: any) => {
-    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-    next();
-  }
+const Schemas = {
+  login: z.object({ email: z.string().email(), password: z.string() }),
+  product: z.object({ name: z.string(), category: z.string(), price: z.number(), stock: z.number(), description: z.string().optional(), modelCompatibility: z.string().optional(), imageUrl: z.string().optional(), colors: z.array(z.any()).optional(), specifications: z.array(z.any()).optional() })
 };
 
-// --- AUTH ---
-app.get('/api/me', Gatekeeper.authenticate, async (req: any, res) => {
-  const [users]: any = await pool.query('SELECT id, email, full_name as fullName, role FROM users WHERE id = ?', [req.user.id]);
-  res.json(users[0]);
-});
-
-app.post('/api/login', authLimiter, async (req, res) => {
-  try {
-    const { email, password } = Schemas.login.parse(req.body);
-    const [users]: any = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (users.length === 0) return res.status(401).json({ error: 'Auth Failed' });
-    const user = users[0];
-    const isValid = user.password_hash.includes(':') ? Security.oldVerify(password, user.password_hash) : await bcrypt.compare(password, user.password_hash);
-    if (!isValid) return res.status(401).json({ error: 'Auth Failed' });
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role, fullName: user.full_name }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role } });
-  } catch (err: any) { res.status(500).json({ error: 'Server Error' }); }
-});
-
-app.post('/api/register', authLimiter, async (req, res) => {
-  try {
-    const { fullName, email, password } = Schemas.register.parse(req.body);
-    const [existing]: any = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) return res.status(409).json({ error: 'Email registered' });
-    const [total]: any = await pool.query('SELECT COUNT(*) as count FROM users');
-    const role = total[0].count === 0 ? 'admin' : 'user';
-    const hashedPassword = await Security.hash(password);
-    const [r]: any = await pool.query('INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)', [fullName, email, hashedPassword, role]);
-    const token = jwt.sign({ id: r.insertId, email, role, fullName }, JWT_SECRET, { expiresIn: '24h' });
-    res.status(201).json({ token, user: { id: r.insertId, email, fullName, role } });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
-
-// --- PRODUCTS ---
 app.get('/api/products', async (req, res) => {
   try {
-    const page = req.query.page ? parseInt(req.query.page as string) : null;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 12;
-    const search = req.query.search as string || req.query.q as string;
-    const category = req.query.category as string;
-    const sortBy = req.query.sortBy as string || 'popular';
-    
-    let query = 'SELECT * FROM products WHERE 1=1';
-    let params: any[] = [];
-    if (search) { query += ' AND (name LIKE ? OR description LIKE ? OR category LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-    if (category && category !== 'all') { query += ' AND category = ?'; params.push(category); }
-    if (sortBy === 'price-low') query += ' ORDER BY price ASC';
-    else if (sortBy === 'price-high') query += ' ORDER BY price DESC';
-    else query += ' ORDER BY id DESC';
-
-    if (page !== null) {
-      const offset = (page - 1) * limit;
-      const [rows]: any = await pool.query(query + ' LIMIT ? OFFSET ?', [...params, limit, offset]);
-      const [totalRows]: any = await pool.query('SELECT COUNT(*) as total FROM products WHERE 1=1' + (category && category !== 'all' ? ' AND category = ?' : ''), category && category !== 'all' ? [category] : []);
-      return res.json({ products: rows, pagination: { total: totalRows[0].total, page, limit, totalPages: Math.ceil(totalRows[0].total / limit) } });
-    }
-    const [rows] = await pool.query(query, params);
+    const [rows] = await pool.query('SELECT * FROM products ORDER BY id DESC');
     res.json(rows);
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/products', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
-    const p = Schemas.product.parse(req.body);
-    const [r]: any = await pool.query('INSERT INTO products (name,category,price,stock,description,model_compatibility,image_url,colors,specifications) VALUES (?,?,?,?,?,?,?,?,?)', [p.name, p.category, p.price, p.stock, p.description, p.modelCompatibility, p.imageUrl, JSON.stringify(p.colors || []), JSON.stringify(p.specifications || [])]);
-    res.json({ id: r.insertId });
+    const [rows] = await pool.query('SELECT * FROM categories');
+    res.json(rows);
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
-
-app.delete('/api/products/:id', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-  await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-  res.json({ message: 'Deleted' });
-});
-
-// --- ORDERS ---
-app.get('/api/orders', Gatekeeper.authenticate, Gatekeeper.adminOnly, async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
-  res.json(rows);
-});
-
-app.post('/api/orders', async (req: any, res) => {
-  const o = req.body;
-  const shipping = o.shipping || {};
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-    const orderId = `ORD-${Date.now()}`;
-    await conn.query('INSERT INTO orders (id, user_id, full_name, email, phone, address, city, area, postal_code, payment_method, subtotal, shipping_fee, tax, total) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [orderId, req.user?.id || null, o.fullName || shipping.fullName, o.email || shipping.email, o.phone || shipping.phone, o.address || shipping.address, o.city || shipping.city, o.area || shipping.area, o.postalCode || shipping.postalCode, o.paymentMethod, o.subtotal, o.shippingFee, o.tax, o.total]);
-    if (o.items) {
-      const items = o.items.map((i: any) => [orderId, i.id, i.name, i.quantity, i.price, i.selectedColor]);
-      await conn.query('INSERT INTO order_items (order_id, product_id, product_name, quantity, price, selected_color) VALUES ?', [items]);
-    }
-    await conn.commit();
-    res.json({ orderId });
-  } catch (err: any) { await conn.rollback(); res.status(500).json({ error: err.message }); } finally { conn.release(); }
-});
-
-// --- CATEGORIES, CMS, MENUS, ANNOUNCEMENTS ---
-app.get('/api/categories', async (req, res) => { const [rows] = await pool.query('SELECT * FROM categories'); res.json(rows); });
-app.get('/api/cms/:slug', async (req, res) => { const [rows]: any = await pool.query('SELECT * FROM cms_pages WHERE slug = ?', [req.params.slug]); res.json(rows[0] || { title: 'Missing', content: '' }); });
-app.get('/api/menus', async (req, res) => { const [rows] = await pool.query('SELECT * FROM menu_items ORDER BY position ASC'); res.json(rows); });
-app.get('/api/announcements', async (req, res) => { const [rows] = await pool.query('SELECT * FROM announcements WHERE is_active = 1 ORDER BY position ASC'); res.json(rows); });
-app.get('/api/social-links', async (req, res) => { const [rows] = await pool.query('SELECT * FROM social_links WHERE is_active = 1 ORDER BY position ASC'); res.json(rows); });
 
 export default app;
 
