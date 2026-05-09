@@ -403,7 +403,7 @@ async function startServer() {
       const token = jwt.sign({ id: user.id, email: user.email, role: user.role, fullName: user.full_name }, JWT_SECRET, { expiresIn: '24h' });
       res.json({ token, user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role } });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });
@@ -427,7 +427,7 @@ async function startServer() {
       const token = jwt.sign({ id: r.insertId, email, role, fullName }, JWT_SECRET, { expiresIn: '24h' });
       res.status(201).json({ token, user: { id: r.insertId, email, fullName, role } });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -511,7 +511,7 @@ async function startServer() {
         [p.name, p.category, p.price, p.stock, p.description, p.modelCompatibility, p.imageUrl, JSON.stringify(p.colors || []), JSON.stringify(p.specifications || [])]);
       res.json({ id: r.insertId });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -525,7 +525,7 @@ async function startServer() {
       );
       res.json({ message: 'Product Updated' });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -671,7 +671,7 @@ async function startServer() {
       const [r]: any = await pool.query('INSERT INTO categories (name, slug, description, image_url) VALUES (?, ?, ?, ?)', [name, slug, description, imageUrl]);
       res.json({ id: r.insertId });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -682,7 +682,7 @@ async function startServer() {
         [name, slug, description, imageUrl, req.params.id]);
       res.json({ message: 'Category Updated' });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -707,7 +707,7 @@ async function startServer() {
       const [r]: any = await pool.query('INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?)', [slug, title, content]);
       res.status(201).json({ id: r.insertId, message: 'Page Created' });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(409).json({ error: 'Slug must be unique' });
     }
   });
@@ -731,7 +731,7 @@ async function startServer() {
       }
       res.json({ message: 'Content Synchronized' });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -754,7 +754,7 @@ async function startServer() {
         [label, url, parent_id || null, position || 0, location || 'header', layout_style || 'Default', is_active ?? true]);
       res.json({ message: 'Menu Item Synced' });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -827,7 +827,7 @@ async function startServer() {
       const [r]: any = await pool.query('INSERT INTO social_links (platform, url, icon, position, is_active) VALUES (?, ?, ?, ?, ?)', [platform, url, icon, position || 0, is_active ?? true]);
       res.json({ id: r.insertId });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
@@ -837,7 +837,7 @@ async function startServer() {
       await pool.query('UPDATE social_links SET platform=?, url=?, icon=?, position=?, is_active=? WHERE id=?', [platform, url, icon, position, is_active ?? true, req.params.id]);
       res.json({ message: 'Social Link Updated' });
     } catch (err: any) {
-      if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors[0].message });
+      if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues[0].message });
       res.status(500).json({ error: err.message });
     }
   });
