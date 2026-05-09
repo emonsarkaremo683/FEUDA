@@ -26,7 +26,7 @@ app.use(cors({ origin: [FRONTEND_URL, 'http://localhost:5173', 'https://feuda.ve
 app.use(express.json());
 
 const dbConfig = {
-  host: process.env.DB_HOST || '127.0.0.1', // Defaulting to localhost if not set
+  host: process.env.DB_HOST || '127.0.0.1',
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'jeestore',
@@ -35,7 +35,10 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  connectTimeout: 10000
+  connectTimeout: 10000,
+  ssl: {
+    rejectUnauthorized: false // Required for some remote connections
+  }
 };
 
 const pool = mysql.createPool(dbConfig);
@@ -75,25 +78,16 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     db: dbInitialized ? 'connected' : 'connecting',
-    env: {
-      DB_HOST_SET: !!process.env.DB_HOST,
-      DB_HOST: process.env.DB_HOST || 'NOT SET (Defaults to 127.0.0.1)',
-      NODE_ENV: process.env.NODE_ENV
-    }
+    env: { DB_HOST: process.env.DB_HOST || 'NOT SET' }
   });
 });
 
 app.use(async (req, res, next) => {
   if (req.path === '/api/health') return next();
   if (!dbInitialized) await initializeDatabase();
-  if (dbError) return res.status(500).json({ error: "Database Link Error", details: dbError, detected_host: dbConfig.host });
+  if (dbError) return res.status(500).json({ error: "Database Link Error", details: dbError });
   next();
 });
-
-const Schemas = {
-  login: z.object({ email: z.string().email(), password: z.string() }),
-  product: z.object({ name: z.string(), category: z.string(), price: z.number(), stock: z.number(), description: z.string().optional(), modelCompatibility: z.string().optional(), imageUrl: z.string().optional(), colors: z.array(z.any()).optional(), specifications: z.array(z.any()).optional() })
-};
 
 app.get('/api/products', async (req, res) => {
   try {
@@ -105,6 +99,27 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/categories', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM categories');
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/menus', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM menu_items ORDER BY position ASC');
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM announcements WHERE is_active = 1 ORDER BY position ASC');
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/social-links', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM social_links WHERE is_active = 1 ORDER BY position ASC');
     res.json(rows);
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
