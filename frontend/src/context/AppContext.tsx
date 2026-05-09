@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, CartItem, Order, ShippingInfo, PaymentMethodType, User, Address, MenuItem } from '../types';
 import { products as mockProducts, CATEGORY_NAMES } from '../data/products'; // Keep as fallback
+import { API_BASE_URL } from '../config';
 
 interface AppContextType {
   products: Product[];
@@ -90,7 +91,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshCategories = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch(`${API_BASE_URL}/api/categories`);
       if (response.ok) {
          const data = await response.json();
          if (Array.isArray(data) && data.length > 0) {
@@ -108,7 +109,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshProducts = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/products');
+      const response = await fetch(`${API_BASE_URL}/api/products`);
       if (response.ok) {
         const dbProducts = await response.json();
         if (Array.isArray(dbProducts)) {
@@ -142,7 +143,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshMenus = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/menus');
+      const response = await fetch(`${API_BASE_URL}/api/menus`);
       if (response.ok) {
         const dbMenus = await response.json();
         setMenus(dbMenus);
@@ -158,7 +159,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshSocialLinks = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/social-links');
+      const response = await fetch(`${API_BASE_URL}/api/social-links`);
       if (response.ok) {
         const data = await response.json();
         setSocialLinks(data);
@@ -172,7 +173,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshCmsPages = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/cms');
+      const response = await fetch(`${API_BASE_URL}/api/cms`);
       if (response.ok) {
         const data = await response.json();
         setCmsPages(Array.isArray(data) ? data : []);
@@ -186,7 +187,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshAnnouncements = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/announcements');
+      const response = await fetch(`${API_BASE_URL}/api/announcements`);
       if (response.ok) {
         const data = await response.json();
         setAnnouncements(Array.isArray(data) ? data : []);
@@ -200,7 +201,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshTheme = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/cms/theme-settings');
+      const response = await fetch(`${API_BASE_URL}/api/cms/theme-settings`);
       if (response.ok) {
         const data = await response.json();
         if (data?.content) {
@@ -246,7 +247,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const verifyToken = async () => {
        if (token) {
          try {
-           const res = await fetch('/api/me', {
+           const res = await fetch(`${API_BASE_URL}/api/me`, {
              headers: { 'Authorization': `Bearer ${token}` }
            });
            if (!res.ok) {
@@ -267,7 +268,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (user && token) {
       const fetchOrders = async () => {
         try {
-          const endpoint = user.role === 'admin' ? '/api/orders' : '/api/orders/mine';
+          const endpoint = user.role === 'admin' ? `${API_BASE_URL}/api/orders` : `${API_BASE_URL}/api/orders/mine`;
           const response = await fetch(endpoint, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -351,7 +352,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      await fetch('/api/orders', { method: 'POST', headers, body: JSON.stringify({ orderId, fullName: shipping.fullName, email: shipping.email, phone: shipping.phone, address: shipping.address, city: shipping.city, area: shipping.area, postalCode: shipping.postalCode, items: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, selectedColor: item.selectedColor })), subtotal, shippingFee, tax, total, paymentMethod: method }) });
+      await fetch(`${API_BASE_URL}/api/orders`, { method: 'POST', headers, body: JSON.stringify({ orderId, fullName: shipping.fullName, email: shipping.email, phone: shipping.phone, address: shipping.address, city: shipping.city, area: shipping.area, postalCode: shipping.postalCode, items: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, selectedColor: item.selectedColor })), subtotal, shippingFee, tax, total, paymentMethod: method }) });
     } catch (err) { console.warn('Backend sync failed'); }
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
@@ -378,7 +379,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (user) {
       setUser({ ...user, ...data });
       try {
-        await fetch('/api/me', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) });
+        await fetch(`${API_BASE_URL}/api/me`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) });
       } catch (err) { console.warn('Profile sync failed'); }
       showToast('Profile updated');
     }
@@ -402,7 +403,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     try {
-      await fetch(`/api/orders/${orderId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
+      await fetch(`${API_BASE_URL}/api/orders/${orderId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
     } catch (err) { console.warn('Backend status sync failed'); }
     showToast(`Order ${orderId} status updated to ${status}`);
   };

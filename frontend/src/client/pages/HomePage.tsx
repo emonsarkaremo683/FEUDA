@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import TrustSection from '../components/TrustSection';
@@ -103,7 +104,7 @@ const HomePage: React.FC<HomePageProps> = ({ previewLayout }) => {
     if (previewLayout) {
       setLayout(previewLayout);
     } else {
-      fetch('/api/cms/homepage-layout')
+      fetch(`${API_BASE_URL}/api/cms/homepage-layout`)
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data && data.content) {

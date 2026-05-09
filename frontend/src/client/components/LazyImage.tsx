@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
+import { uploadUrl } from '../../config';
+
 interface LazyImageProps {
   src: string;
   alt: string;
@@ -8,6 +10,7 @@ interface LazyImageProps {
 }
 
 const LazyImage: React.FC<LazyImageProps> = ({ src, alt, className = "" }) => {
+  const finalSrc = uploadUrl(src);
   const [isIntersecting, setIsIntersecting] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
@@ -37,7 +40,7 @@ const LazyImage: React.FC<LazyImageProps> = ({ src, alt, className = "" }) => {
     >
       {isIntersecting && (
         <img
-          src={src}
+          src={finalSrc}
           alt={alt}
           onLoad={() => setIsLoaded(true)}
           className={`w-full h-full object-cover transition-opacity duration-700 ${

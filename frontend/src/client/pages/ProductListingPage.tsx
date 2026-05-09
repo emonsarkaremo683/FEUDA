@@ -4,6 +4,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
+import { API_BASE_URL } from '../../config';
 
 const SkeletonCard = () => (
   <div className="bg-[#161920]/5 rounded-[2rem] p-6 animate-pulse">
@@ -42,7 +43,7 @@ const ProductListingPage: React.FC = () => {
       if (categoryId && categoryId !== 'all') params.append('category', categoryId);
       if (searchQuery) params.append('q', searchQuery);
 
-      const res = await fetch(`/api/products?${params.toString()}`);
+      const res = await fetch(`${API_BASE_URL}/api/products?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         const formatted = data.products.map((p: any) => ({

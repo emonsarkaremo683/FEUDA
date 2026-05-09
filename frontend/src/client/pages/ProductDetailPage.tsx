@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import LazyImage from '../components/LazyImage';
 import { ColorVariant } from '../../types';
+import { API_BASE_URL } from '../../config';
 
 const ProductDetailPage: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -36,7 +37,7 @@ const ProductDetailPage: React.FC = () => {
   const fetchReviews = async () => {
     if (!productId) return;
     try {
-      const res = await fetch(`/api/reviews/${productId}`);
+      const res = await fetch(`${API_BASE_URL}/api/reviews/${productId}`);
       if (res.ok) {
         const data = await res.json();
         setRealReviews(data);
@@ -53,7 +54,7 @@ const ProductDetailPage: React.FC = () => {
     if (!token) return showToast("Please login to post a review.");
     setIsSubmittingReview(true);
     try {
-      const res = await fetch('/api/reviews', {
+      const res = await fetch(`${API_BASE_URL}/api/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

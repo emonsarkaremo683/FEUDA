@@ -1,5 +1,6 @@
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { uploadUrl } from '../../config';
 
 interface VideoItem {
   id: number | string;
@@ -110,7 +111,7 @@ const VideoSection: React.FC<VideoSectionProps> = ({
         >
           <video
             ref={videoRef}
-            src={singleVideo.videoUrl}
+            src={uploadUrl(singleVideo.videoUrl)}
             loop
             muted
             playsInline
@@ -174,7 +175,7 @@ const VideoSection: React.FC<VideoSectionProps> = ({
             <>
               <video
                 ref={videoRef}
-                src={activeVideo.videoUrl}
+                src={uploadUrl(activeVideo.videoUrl)}
                 loop
                 muted
                 playsInline
@@ -241,7 +242,7 @@ const VideoSection: React.FC<VideoSectionProps> = ({
                 ${activeIndex === index ? 'bg-orange-500' : 'bg-slate-100 group-hover/item:bg-slate-200'}
               `}>
                 {video.thumbnail ? (
-                  <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+                  <img src={uploadUrl(video.thumbnail)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex flex-col items-center justify-center">
                     <span className={`text-lg font-black ${activeIndex === index ? 'text-white' : 'text-slate-400'}`}>

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { uploadUrl } from '../../config';
 
 interface HeroSlide {
   id: string | number;
@@ -66,7 +67,7 @@ const Hero: React.FC<HeroProps> = ({ slides = defaultSlides }) => {
           {/* Background Image with Overlay */}
           <div className="absolute inset-0">
              <img 
-               src={slide.image} 
+               src={uploadUrl(slide.image)} 
                alt={slide.title} 
                className="w-full h-full object-cover opacity-40 scale-105"
              />
