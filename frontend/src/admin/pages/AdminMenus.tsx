@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 
 interface MenuItem {
@@ -203,6 +204,14 @@ const AdminMenus: React.FC = () => {
                               </div>
                            </div>
                            <div className="flex items-center gap-2">
+                              {parent.url?.startsWith('/cms/') && (
+                                <Link 
+                                  to="/admin/cms" 
+                                  className="px-3 py-1 bg-purple-500/10 text-purple-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  Edit Content
+                                </Link>
+                              )}
                               <button onClick={() => handleEdit(parent)} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-white/5 text-slate-400 rounded-lg transition-all">
                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                               </button>
@@ -224,6 +233,14 @@ const AdminMenus: React.FC = () => {
                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                   {child.url?.startsWith('/cms/') && (
+                                     <Link 
+                                       to="/admin/cms" 
+                                       className="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                     >
+                                       Edit Content
+                                     </Link>
+                                   )}
                                    <button onClick={() => handleEdit(child)} className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-white/5 text-slate-500 rounded-md transition-all">
                                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                    </button>

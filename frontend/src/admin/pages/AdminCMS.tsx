@@ -153,20 +153,59 @@ const AdminCMS: React.FC = () => {
         ) : selectedPage ? (
           <div className="bg-[#161920] border border-white/5 rounded-3xl p-6 md:p-10 shadow-2xl flex flex-col h-full animate-fade-in">
              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-                <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">Editor: {selectedPage.title}</h3>
+                <div className="space-y-1">
+                   <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">Editor Interface</h3>
+                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Active Node: {selectedPage.title}</p>
+                </div>
                 <div className="flex gap-3 w-full md:w-auto">
+                   <a 
+                     href={`#/cms/${selectedPage.slug}`} 
+                     target="_blank" 
+                     rel="noreferrer" 
+                     className="bg-white/5 text-white px-6 py-3 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex items-center gap-2"
+                   >
+                     View Live
+                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                   </a>
                    <button onClick={() => handleDelete(selectedPage.id)} className="bg-red-500/10 text-red-500 px-6 py-3 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-red-500 hover:text-white transition-all">Delete</button>
                    <button onClick={handleUpdate} className="flex-1 md:flex-none bg-purple-600 text-white px-8 py-3 rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-purple-500/20 hover:scale-105 transition-all">Save Changes</button>
                 </div>
              </div>
              
              <div className="space-y-6 flex-grow flex flex-col">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Resource Title</label>
+                      <input 
+                        type="text" 
+                        value={selectedPage.title} 
+                        onChange={e => setSelectedPage({...selectedPage, title: e.target.value})}
+                        className="w-full bg-[#0f1115] border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-purple-500 transition-all text-sm"
+                      />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">URL Route (Slug)</label>
+                      <div className="relative">
+                         <span className="absolute left-4 top-4 text-slate-600 font-mono text-xs">/cms/</span>
+                         <input 
+                           type="text" 
+                           value={selectedPage.slug} 
+                           onChange={e => setSelectedPage({...selectedPage, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')})}
+                           className="w-full bg-[#0f1115] border border-white/10 rounded-2xl p-4 pl-14 text-purple-400 font-mono outline-none focus:border-purple-500 transition-all text-xs"
+                         />
+                      </div>
+                   </div>
+                </div>
+
                 <div className="space-y-2 flex-grow flex flex-col">
-                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Page Content (HTML/RichText)</label>
+                   <div className="flex justify-between items-center ml-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Page Content (HTML Architecture)</label>
+                      <span className="text-[8px] text-purple-500 font-bold uppercase">Tailwind Classes Supported</span>
+                   </div>
                    <textarea 
                      value={selectedPage.content} 
                      onChange={e => setSelectedPage({...selectedPage, content: e.target.value})}
-                     className="w-full bg-[#0f1115] border border-white/10 rounded-2xl p-4 md:p-8 text-slate-300 font-mono text-sm leading-relaxed outline-none focus:border-purple-500 transition-all flex-grow min-h-[300px] md:min-h-[400px]"
+                     className="w-full bg-[#0f1115] border border-white/10 rounded-2xl p-4 md:p-8 text-slate-300 font-mono text-sm leading-relaxed outline-none focus:border-purple-500 transition-all flex-grow min-h-[300px] md:min-h-[400px] shadow-inner"
                    />
                 </div>
              </div>
