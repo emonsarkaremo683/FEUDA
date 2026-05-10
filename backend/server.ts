@@ -28,23 +28,35 @@ const JWT_SECRET = process.env.JWT_SECRET || 'feuda_primary_secure_secret';
 const FRONTEND_URLS = ['http://feudatech.com', 'https://feuda.vercel.app', 'http://localhost:5173', 'https://feuda-frontend.vercel.app'];
 
 // Initialize Firebase Admin SDK
-if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-  console.log("FIREBASE_SERVICE_ACCOUNT_KEY found. Attempting Firebase Admin SDK initialization.");
-  console.log("Key length:", process.env.FIREBASE_SERVICE_ACCOUNT_KEY.length);
+if (process.env.FIREBASE_SERVICE_ACCOUNT_B64 || process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  console.log("Firebase credentials found. Attempting Firebase Admin SDK initialization.");
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    let serviceAccount;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
+      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8');
+      serviceAccount = JSON.parse(decoded);
+    } else {
+      let keyString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string;
+      // Handle case where Vercel might add single quotes around the JSON
+      if (keyString.startsWith("'") && keyString.endsWith("'")) {
+        keyString = keyString.slice(1, -1);
+      }
+      serviceAccount = JSON.parse(keyString);
+    }
+
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n').replace(/\n/g, '\n');
     }
+    
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
     console.log("Firebase Admin SDK initialized successfully.");
   } catch (e) {
-    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY or initialize Firebase Admin:", e);
+    console.error("Failed to parse Firebase credentials or initialize Firebase Admin:", e);
   }
 } else {
-  console.warn("FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables. Firebase Admin SDK not initialized.");
+  console.warn("No Firebase credentials found in environment variables. Firebase Admin SDK not initialized.");
 }
 
 
