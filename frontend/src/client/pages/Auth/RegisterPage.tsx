@@ -47,8 +47,11 @@ const RegisterPage: React.FC = () => {
     const idToken = await firebaseUser.getIdToken();
     const res = await fetch(`${API_BASE_URL}/api/firebase-auth`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken, fullName, email: firebaseUser.email })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ uid: firebaseUser.uid, fullName, email: firebaseUser.email, emailVerified: firebaseUser.emailVerified })
     });
     const data = await res.json();
     if (!res.ok) {
