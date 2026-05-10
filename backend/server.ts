@@ -205,8 +205,50 @@ app.post('/api/firebase-auth', async (req, res) => {
 });
 
 // DEPRECATED: Old Authentication Endpoints - replaced by Firebase flow
-app.post('/api/login', (req, res) => {
-  res.status(501).json({ error: "Login via /api/login is deprecated. Please use Firebase authentication." });
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    const [users]: any = await pool.query('SELECT id, email, password, full_name, role, firebase_uid, email_verified FROM users WHERE email = ?', [email]);
+
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = users[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, fullName: user.full_name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id.toString(),
+        uid: user.firebase_uid,
+        email: user.email,
+        fullName: user.full_name || '',
+        role: user.role,
+        emailVerified: user.email_verified,
+      },
+    });
+
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.post('/api/register', (req, res) => {
