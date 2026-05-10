@@ -21,7 +21,7 @@ async function seed() {
     // For safety, we only delete if requested, but here we want "mock completion"
     // Let's TRUNCATE tables to start fresh
     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
-    const tables = ['products', 'categories', 'menu_items', 'announcements', 'social_links', 'devices', 'cms_pages'];
+    const tables = ['products', 'categories', 'menu_items', 'announcements', 'social_links', 'cms_pages'];
     for (const table of tables) {
       await connection.query(`TRUNCATE TABLE ${table}`);
       console.log(`Truncated ${table}`);
