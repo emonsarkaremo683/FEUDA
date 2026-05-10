@@ -29,6 +29,8 @@ const FRONTEND_URLS = ['http://feudatech.com', 'https://feuda.vercel.app', 'http
 
 // Initialize Firebase Admin SDK
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  console.log("FIREBASE_SERVICE_ACCOUNT_KEY found. Attempting Firebase Admin SDK initialization.");
+  console.log("Key length:", process.env.FIREBASE_SERVICE_ACCOUNT_KEY.length);
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     if (serviceAccount.private_key) {
@@ -37,11 +39,12 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
+    console.log("Firebase Admin SDK initialized successfully.");
   } catch (e) {
-    console.error("Failed to initialize Firebase Admin:", e);
+    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY or initialize Firebase Admin:", e);
   }
 } else {
-  console.warn("FIREBASE_SERVICE_ACCOUNT_KEY not found. Firebase Admin SDK not initialized.");
+  console.warn("FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables. Firebase Admin SDK not initialized.");
 }
 
 // Security & Utils
