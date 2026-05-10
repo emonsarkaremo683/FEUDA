@@ -47,18 +47,51 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
   console.warn("FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables. Firebase Admin SDK not initialized.");
 }
 
-// Security & Utils
-const Security = {
-  // Bcrypt is no longer directly used for Firebase users, but might be for legacy or admin-created users
-  hash: async (p: string) => await bcrypt.hash(p, 12),
-  verify: async (p: string, h: string) => {
-    if (h.includes(':')) {
-      const [salt, hash] = h.split(':');
-      return crypto.createHash('sha512').update(p + salt).digest('hex') === hash;
+
+async function createAdminAccountIfMissing() {
+  const adminEmail = 'admin@feudatech.com';
+  const adminPassword = 'admin123';
+  // Hash the password using bcrypt
+  const hashedPassword = await bcrypt.hash(adminPassword, 10); // 10 salt rounds
+
+  try {
+    // Check if an admin user already exists with this email
+    const [existingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND role = ?',
+      [adminEmail, 'admin']
+    );
+
+    if (existingUsers.length > 0) {
+      console.log(`Admin user with email ${adminEmail} already exists. Skipping creation.`);
+      return;
     }
-    return await bcrypt.compare(p, h);
+
+    // Check if a user with this email (any role) already exists. If so, update their role to admin.
+    const [anyExistingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ?',
+      [adminEmail]
+    );
+
+    if (anyExistingUsers.length > 0) {
+      const userId = anyExistingUsers[0].id;
+      await pool.query(
+        'UPDATE users SET role = ?, password_hash = ? WHERE id = ?',
+        ['admin', hashedPassword, userId]
+      );
+      console.log(`Updated user ${adminEmail} to admin role.`);
+    } else {
+      // Create a new admin user
+      await pool.query(
+        'INSERT INTO users (full_name, email, password_hash, role, email_verified) VALUES (?, ?, ?, ?, ?)',
+        ['Admin User', adminEmail, hashedPassword, 'admin', true]
+      );
+      console.log(`Admin user ${adminEmail} created successfully.`);
+    }
+
+  } catch (err) {
+    console.error('Error creating admin account:', err);
   }
-};
+}
 
 const Schemas = {
   product: z.object({ name: z.string(), category: z.string(), price: z.number(), stock: z.number(), description: z.string().optional(), modelCompatibility: z.string().optional(), imageUrl: z.string().optional(), colors: z.array(z.any()).optional(), specifications: z.array(z.any()).optional(), isBestSeller: z.boolean().optional() }),
@@ -374,5 +407,6 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', domain: 'feudatech
 export default app;
 
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  createAdminAccountIfMissing(); // Ensure admin account exists on startup
   app.listen(PORT, '0.0.0.0', () => console.log(`🚀 http://localhost:${PORT}`));
 }
