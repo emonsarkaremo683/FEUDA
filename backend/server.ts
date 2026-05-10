@@ -10,6 +10,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { fileURLToPath } from 'url';
+import * as admin from 'firebase-admin'; // Firebase Admin SDK
 
 dotenv.config();
 
@@ -26,8 +27,18 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'feuda_primary_secure_secret';
 const FRONTEND_URLS = ['http://feudatech.com', 'https://feuda.vercel.app', 'http://localhost:5173', 'https://feuda-frontend.vercel.app'];
 
+// Initialize Firebase Admin SDK
+if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY))
+  });
+} else {
+  console.warn("FIREBASE_SERVICE_ACCOUNT_KEY not found. Firebase Admin SDK not initialized.");
+}
+
 // Security & Utils
 const Security = {
+  // Bcrypt is no longer directly used for Firebase users, but might be for legacy or admin-created users
   hash: async (p: string) => await bcrypt.hash(p, 12),
   verify: async (p: string, h: string) => {
     if (h.includes(':')) {
@@ -84,7 +95,7 @@ async function initDB() {
 
     const schema = `
       CREATE TABLE IF NOT EXISTS products (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100) NOT NULL, price DECIMAL(10,2) NOT NULL, stock INT DEFAULT 0, description TEXT, model_compatibility VARCHAR(255), image_url VARCHAR(255), is_best_seller BOOLEAN DEFAULT FALSE, colors TEXT, specifications TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, role ENUM('admin', 'user') DEFAULT 'user', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, firebase_uid VARCHAR(128) UNIQUE, full_name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL, password_hash VARCHAR(255), role ENUM('admin', 'user') DEFAULT 'user', email_verified BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS categories (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, slug VARCHAR(100) UNIQUE NOT NULL, description TEXT, image_url VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS cms_pages (id INT AUTO_INCREMENT PRIMARY KEY, slug VARCHAR(100) UNIQUE NOT NULL, title VARCHAR(255) NOT NULL, content LONGTEXT NOT NULL, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS menu_items (id INT AUTO_INCREMENT PRIMARY KEY, label VARCHAR(255) NOT NULL, url VARCHAR(255) DEFAULT NULL, parent_id INT NULL, position INT DEFAULT 0, is_active BOOLEAN DEFAULT TRUE, location VARCHAR(50) DEFAULT 'header', layout_style VARCHAR(100) DEFAULT 'Default', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (parent_id) REFERENCES menu_items(id) ON DELETE CASCADE);
@@ -119,27 +130,83 @@ const Gatekeeper = {
   }
 };
 
-// --- AUTH ---
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  const [users]: any = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-  if (users.length === 0 || !(await Security.verify(password, users[0].password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
-  const user = users[0];
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, fullName: user.full_name }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role } });
+// NEW: Firebase Authentication Endpoint
+app.post('/api/firebase-auth', async (req, res) => {
+  if (!admin.apps.length) {
+    return res.status(500).json({ error: "Firebase Admin SDK not initialized." });
+  }
+  const idToken = req.headers.authorization?.split(' ')[1];
+  const { uid, email, fullName, emailVerified } = req.body; // Data from frontend for initial user creation/update
+
+  if (!idToken) {
+    return res.status(401).json({ error: 'No Firebase ID token provided.' });
+  }
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    if (decodedToken.uid !== uid) {
+        return res.status(403).json({ error: "Firebase UID mismatch." });
+    }
+
+    let userRole = 'user';
+    let userId = null;
+
+    // Check if user already exists in MySQL
+    const [existingUsers]: any = await pool.query('SELECT id, role FROM users WHERE firebase_uid = ? OR email = ?', [uid, email]);
+    let dbUser;
+
+    if (existingUsers.length > 0) {
+      dbUser = existingUsers[0];
+      userRole = dbUser.role; // Maintain existing role
+      userId = dbUser.id;
+      // Update existing user details if necessary (e.g., emailVerified status, full_name)
+      await pool.query('UPDATE users SET full_name = ?, email = ?, email_verified = ? WHERE id = ?', [fullName || decodedToken.name, email || decodedToken.email, emailVerified || decodedToken.email_verified, userId]);
+    } else {
+      // New user: Create in MySQL
+      const [totalUsers]: any = await pool.query('SELECT COUNT(*) as count FROM users');
+      const role = totalUsers[0].count === 0 ? 'admin' : 'user'; // First user is admin
+
+      const [result]: any = await pool.query('INSERT INTO users (firebase_uid, full_name, email, role, email_verified) VALUES (?, ?, ?, ?, ?)', [uid, fullName || decodedToken.name, email || decodedToken.email, role, emailVerified || decodedToken.email_verified]);
+      userId = result.insertId;
+      userRole = role;
+    }
+
+    // Mint custom JWT for your backend
+    const customToken = jwt.sign(
+      { id: userId, email: email || decodedToken.email, role: userRole, fullName: fullName || decodedToken.name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token: customToken,
+      user: {
+        id: userId.toString(),
+        uid: uid,
+        email: email || decodedToken.email,
+        fullName: fullName || decodedToken.name || '',
+        role: userRole,
+        emailVerified: emailVerified || decodedToken.email_verified,
+      }
+    });
+
+  } catch (err: any) {
+    console.error('Firebase ID token verification failed:', err);
+    res.status(403).json({ error: 'Invalid Firebase ID token.' });
+  }
 });
 
-app.post('/api/register', async (req, res) => {
-  const { fullName, email, password } = req.body;
-  const [total]: any = await pool.query('SELECT COUNT(*) as count FROM users');
-  const role = total[0].count === 0 ? 'admin' : 'user';
-  const [r]: any = await pool.query('INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)', [fullName, email, await Security.hash(password), role]);
-  const token = jwt.sign({ id: r.insertId, email, role, fullName }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { id: r.insertId, email, fullName, role } });
+// DEPRECATED: Old Authentication Endpoints - replaced by Firebase flow
+app.post('/api/login', (req, res) => {
+  res.status(501).json({ error: "Login via /api/login is deprecated. Please use Firebase authentication." });
+});
+
+app.post('/api/register', (req, res) => {
+  res.status(501).json({ error: "Registration via /api/register is deprecated. Please use Firebase authentication." });
 });
 
 app.get('/api/me', Gatekeeper.auth, async (req: any, res) => {
-  const [users]: any = await pool.query('SELECT id, email, full_name as fullName, role FROM users WHERE id = ?', [req.user.id]);
+  const [users]: any = await pool.query('SELECT id, firebase_uid as uid, email, full_name as fullName, role, email_verified as emailVerified FROM users WHERE id = ?', [req.user.id]);
   res.json(users[0]);
 });
 
