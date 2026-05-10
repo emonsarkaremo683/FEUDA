@@ -98,7 +98,7 @@ const Navbar: React.FC = () => {
                               <div className="absolute inset-0 bg-gradient-to-r from-[#f8f9fb] to-transparent" />
                               <div className="absolute bottom-10 left-10 p-8 bg-white/40 backdrop-blur-md rounded-[2rem] border border-white/20 max-w-xs">
                                  <h5 className="font-black text-slate-900 text-lg uppercase leading-tight mb-2">Nexus Pro Series</h5>
-                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Engineered for Ultimate Resilience</p>
+                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Designed for Durability & Style</p>
                               </div>
                            </div>
                         </div>
@@ -289,3 +289,4 @@ const Navbar: React.FC = () => {
 };
 
 export default Navbar;
+vbar;

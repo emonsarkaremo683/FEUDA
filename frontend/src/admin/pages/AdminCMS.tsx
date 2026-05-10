@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface CMSPage {
   id: number;
@@ -19,7 +20,7 @@ const AdminCMS: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
 
   const fetchPages = () => {
-    fetch('/api/cms', {
+    fetch(`${API_BASE_URL}/api/cms`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
@@ -39,7 +40,7 @@ const AdminCMS: React.FC = () => {
 
   const handleUpdate = () => {
     if (!selectedPage) return;
-    fetch(`/api/cms/${selectedPage.id}`, {
+    fetch(`${API_BASE_URL}/api/cms/${selectedPage.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -61,7 +62,7 @@ const AdminCMS: React.FC = () => {
     if (!newTitle.trim()) return;
     const slug = newTitle.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
     
-    fetch('/api/cms', {
+    fetch(`${API_BASE_URL}/api/cms`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +84,7 @@ const AdminCMS: React.FC = () => {
 
   const handleDelete = (id: number) => {
     if (!window.confirm('Delete this page?')) return;
-    fetch(`/api/cms/${id}`, {
+    fetch(`${API_BASE_URL}/api/cms/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     })

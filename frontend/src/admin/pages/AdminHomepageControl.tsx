@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import HomePage from '../../client/pages/HomePage';
 import FileUploader from '../components/FileUploader';
+import { API_BASE_URL } from '../../config';
 
 interface LayoutSection {
   id: string;
@@ -88,13 +89,13 @@ const AdminHomepageControl: React.FC = () => {
     const fetchLayout = async () => {
       try {
         // Try fetching draft first, fallback to live
-        let res = await fetch('/api/cms/homepage-layout-draft', {
+        let res = await fetch(`${API_BASE_URL}/api/cms/homepage-layout-draft`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         let data = await res.json();
         
         if (!data || data.title === 'Page Missing') {
-          res = await fetch('/api/cms/homepage-layout');
+          res = await fetch(`${API_BASE_URL}/api/cms/homepage-layout`);
           data = await res.json();
         }
 
@@ -143,7 +144,7 @@ const AdminHomepageControl: React.FC = () => {
     if (saveTimeout) clearTimeout(saveTimeout);
 
     const timeout = setTimeout(() => {
-      fetch('/api/cms/homepage-layout-draft', {
+      fetch(`${API_BASE_URL}/api/cms/homepage-layout-draft`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +169,7 @@ const AdminHomepageControl: React.FC = () => {
   const publishLayout = () => {
     if (!window.confirm('Are you sure you want to publish these changes to the live site?')) return;
     
-    fetch('/api/cms/homepage-layout', {
+    fetch(`${API_BASE_URL}/api/cms/homepage-layout`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

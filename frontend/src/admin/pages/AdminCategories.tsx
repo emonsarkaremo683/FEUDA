@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface Category {
   id: number;
@@ -22,7 +23,7 @@ const AdminCategories: React.FC = () => {
   const [form, setForm] = useState(initialCatState);
 
   const fetchCats = () => {
-    fetch('/api/categories')
+    fetch(`${API_BASE_URL}/api/categories`)
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => {
         setCategories(Array.isArray(data) ? data : []);
@@ -52,7 +53,7 @@ const AdminCategories: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = isEditing ? `/api/categories/${currentId}` : '/api/categories';
+    const url = isEditing ? `${API_BASE_URL}/api/categories/${currentId}` : `${API_BASE_URL}/api/categories`;
     const method = isEditing ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -71,7 +72,7 @@ const AdminCategories: React.FC = () => {
 
   const handleDelete = (id: number) => {
     if (!window.confirm('Clear this category from taxonomy?')) return;
-    fetch(`/api/categories/${id}`, {
+    fetch(`${API_BASE_URL}/api/categories/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(() => {

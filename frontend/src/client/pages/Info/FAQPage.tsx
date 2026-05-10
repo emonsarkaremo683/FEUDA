@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
+import { API_BASE_URL } from '../../../config';
 
 const FAQPage: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/cms/faq')
+    fetch(`${API_BASE_URL}/api/cms/faq`)
       .then(res => res.json())
       .then(data => setData(data))
       .catch(console.error)

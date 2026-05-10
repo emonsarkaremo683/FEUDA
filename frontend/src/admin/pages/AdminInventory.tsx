@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface InventoryLog {
   id: number;
@@ -21,7 +22,7 @@ const AdminInventory: React.FC = () => {
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch('/api/inventory/logs', {
+      const res = await fetch(`${API_BASE_URL}/api/inventory/logs`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -43,7 +44,7 @@ const AdminInventory: React.FC = () => {
     
     setIsProcessing(true);
     try {
-      const res = await fetch('/api/inventory/logs', {
+      const res = await fetch(`${API_BASE_URL}/api/inventory/logs`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

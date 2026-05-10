@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { Product, CartItem, Order, ShippingInfo, PaymentMethodType, User, Address, MenuItem } from '../types';
 import { products as mockProducts, CATEGORY_NAMES } from '../data/products'; // Keep as fallback
 import { API_BASE_URL } from '../config';
+import { auth } from '../firebase';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 
 interface AppContextType {
   products: Product[];
@@ -34,9 +36,9 @@ interface AppContextType {
   toggleWishlist: (productId: string) => void;
   clearCart: () => void;
   placeOrder: (shipping: ShippingInfo, paymentMethod: PaymentMethodType, paymentDetails: any) => Order | Promise<Order>;
-  login: (userData: User, token: string) => void;
+  login: (firebaseUser: FirebaseUser, backendUser: User, idToken: string) => void; // Updated signature
   token: string | null;
-  socialLogin: (provider: 'Google' | 'Facebook') => void;
+  // socialLogin: (provider: 'Google' | 'Facebook') => void; // Removed
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   addAddress: (address: Omit<Address, 'id' | 'isDefault'>) => void;
@@ -75,15 +77,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedDevice, setSelectedDevice] = useState<string>(() => {
     return localStorage.getItem('fauda_device') || 'all';
   });
+  // Initialize user and token from localStorage, then let Firebase auth listener manage it
   const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('fauda_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) { return null; }
+    const savedUser = localStorage.getItem('fauda_user');
+    const savedToken = localStorage.getItem('fauda_token');
+    if (savedUser && savedToken) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        // Check for required Firebase fields
+        if (parsedUser.uid && parsedUser.emailVerified !== undefined) {
+          return parsedUser;
+        }
+      } catch (e) {
+        console.error("Failed to parse user from localStorage:", e);
+      }
+    }
+    return null;
   });
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('fauda_token');
-  });
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('fauda_token'));
+
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('fauda_remember') === 'true';
   });
@@ -232,6 +244,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('fauda_device', selectedDevice);
   }, [selectedDevice]);
 
+  // Firebase Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in with Firebase, now get custom JWT from backend
+        try {
+          const idToken = await firebaseUser.getIdToken();
+          const response = await fetch(`${API_BASE_URL}/api/firebase-auth`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}` // Send Firebase ID token
+            },
+            // Optionally send more user data for initial backend user creation/update
+            body: JSON.stringify({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              fullName: firebaseUser.displayName || '',
+              emailVerified: firebaseUser.emailVerified,
+            })
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            // Backend returned custom JWT and backend user object
+            login(firebaseUser, data.user, data.token);
+          } else {
+            console.error('Backend auth sync failed:', data.error);
+            // If backend sync fails, log out from Firebase as well
+            await signOut(auth);
+            logout(); // Clear local state
+          }
+        } catch (err) {
+          console.error('Error during Firebase auth state change sync:', err);
+          await signOut(auth);
+          logout(); // Clear local state
+        }
+      } else {
+        // User is signed out from Firebase
+        logout(); // Clear local state
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup listener
+  }, []);
+
   useEffect(() => {
     if (rememberMe && user && token) {
       localStorage.setItem('fauda_user', JSON.stringify(user));
@@ -243,26 +301,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('fauda_remember', rememberMe.toString());
   }, [user, token, rememberMe]);
 
-  useEffect(() => {
-    const verifyToken = async () => {
-       if (token) {
-         try {
-           const res = await fetch(`${API_BASE_URL}/api/me`, {
-             headers: { 'Authorization': `Bearer ${token}` }
-           });
-           if (!res.ok) {
-             logout();
-           } else {
-             const userData = await res.json();
-             setUser(prev => prev ? { ...prev, role: userData.role, email: userData.email, fullName: userData.fullName } : prev);
-           }
-         } catch (e) {
-           console.warn('Token verification failed');
-         }
-       }
-    };
-    verifyToken();
-  }, [token]);
+  // Removed original verifyToken useEffect, replaced by onAuthStateChanged
+  // useEffect(() => {
+  //   const verifyToken = async () => {
+  //      if (token) {
+  //        try {
+  //          const res = await fetch(`${API_BASE_URL}/api/me`, {
+  //            headers: { 'Authorization': `Bearer ${token}` }
+  //          });
+  //          if (!res.ok) {
+  //            logout();
+  //          } else {
+  //            const userData = await res.json();
+  //            setUser(prev => prev ? { ...prev, role: userData.role, email: userData.email, fullName: userData.fullName } : prev);
+  //          }
+  //        } catch (e) {
+  //          console.warn('Token verification failed');
+  //        }
+  //      }
+  //   };
+  //   verifyToken();
+  // }, [token]);
 
   useEffect(() => {
     if (user && token) {
@@ -359,15 +418,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return newOrder;
   };
 
-  const login = (userData: User, userToken: string) => {
-    setToken(userToken);
-    setUser(userData);
-    localStorage.setItem('fauda_token', userToken);
-    if (rememberMe) localStorage.setItem('fauda_user', JSON.stringify(userData));
-    showToast(userData.role === 'admin' ? `Intelligence session established.` : `Welcome, ${userData.fullName}.`);
+  const login = (firebaseUser: FirebaseUser, backendUser: User, idToken: string) => {
+    setToken(idToken);
+    setUser({ ...backendUser, uid: firebaseUser.uid, emailVerified: firebaseUser.emailVerified });
+    localStorage.setItem('fauda_token', idToken);
+    if (rememberMe) localStorage.setItem('fauda_user', JSON.stringify({ ...backendUser, uid: firebaseUser.uid, emailVerified: firebaseUser.emailVerified }));
+    showToast(backendUser.role === 'admin' ? `Intelligence session established.` : `Welcome, ${backendUser.fullName}.`);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await signOut(auth); // Sign out from Firebase
     setUser(null);
     setToken(null);
     localStorage.removeItem('fauda_user');
@@ -432,7 +492,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       announcements, refreshAnnouncements,
       cart, wishlist, orders, user, token, selectedDevice, setSelectedDevice, rememberMe, setRememberMe,
       addToCart, buyNow, updateCartQuantity, removeFromCart, clearCart, placeOrder,
-      login, socialLogin: () => {}, logout, updateProfile, addAddress, removeAddress, updateOrderStatus,
+      login, /*socialLogin: () => {},*/ logout, updateProfile, addAddress, removeAddress, updateOrderStatus,
       toggleWishlist, cartCount, wishlistCount, cartTotal, toast, showToast, refreshProducts, theme, refreshTheme
     }}>
       {children}

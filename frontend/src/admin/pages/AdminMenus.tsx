@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface MenuItem {
   id: number;
@@ -37,7 +38,7 @@ const AdminMenus: React.FC = () => {
   const [form, setForm] = useState(initialForm);
 
   const fetchMenus = () => {
-    fetch('/api/menus')
+    fetch(`${API_BASE_URL}/api/menus`)
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => setItems(Array.isArray(data) ? data : []))
       .catch(err => {
@@ -47,7 +48,7 @@ const AdminMenus: React.FC = () => {
   };
 
   const fetchSocials = () => {
-    fetch('/api/social-links/all', {
+    fetch(`${API_BASE_URL}/api/social-links/all`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -65,7 +66,7 @@ const AdminMenus: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = isEditing ? `/api/menus/${currentId}` : '/api/menus';
+    const url = isEditing ? `${API_BASE_URL}/api/menus/${currentId}` : `${API_BASE_URL}/api/menus`;
     const method = isEditing ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -132,7 +133,7 @@ const AdminMenus: React.FC = () => {
 
   const handleSocialSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingSocial ? `/api/social-links/${editingSocial}` : '/api/social-links';
+    const url = editingSocial ? `${API_BASE_URL}/api/social-links/${editingSocial}` : `${API_BASE_URL}/api/social-links`;
     const method = editingSocial ? 'PUT' : 'POST';
     fetch(url, {
       method,
@@ -154,7 +155,7 @@ const AdminMenus: React.FC = () => {
 
   const handleSocialDelete = (id: number) => {
     if (!window.confirm('Delete this social link?')) return;
-    fetch(`/api/social-links/${id}`, {
+    fetch(`${API_BASE_URL}/api/social-links/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => {

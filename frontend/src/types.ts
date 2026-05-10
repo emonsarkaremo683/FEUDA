@@ -73,11 +73,13 @@ export interface Address extends ShippingInfo {
 
 export interface User {
   id: string;
+  uid: string; // Firebase User ID
   email: string;
   fullName: string;
   phone?: string;
   addresses: Address[];
   role: 'admin' | 'user';
+  emailVerified: boolean; // From Firebase
 }
 
 export interface MenuItem {

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 const AdminDevices: React.FC = () => {
   const { token } = useApp();
@@ -10,7 +11,7 @@ const AdminDevices: React.FC = () => {
   const [newName, setNewName] = useState('');
 
   const fetchDevices = () => {
-    fetch('/api/devices')
+    fetch(`${API_BASE_URL}/api/devices`)
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => {
         setDevices(Array.isArray(data) ? data : []);
@@ -29,7 +30,7 @@ const AdminDevices: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName) return;
-    fetch('/api/devices', {
+    fetch(`${API_BASE_URL}/api/devices`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -45,7 +46,7 @@ const AdminDevices: React.FC = () => {
 
   const handleDelete = (name: string) => {
     if (!window.confirm(`Purge hardware spec: ${name}?`)) return;
-    fetch(`/api/devices/${encodeURIComponent(name)}`, {
+    fetch(`${API_BASE_URL}/api/devices/${encodeURIComponent(name)}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(() => fetchDevices());

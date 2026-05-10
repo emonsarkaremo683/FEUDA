@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface ThemeSettings {
   primary: string;
@@ -31,7 +32,7 @@ const AdminThemeControl: React.FC = () => {
   useEffect(() => {
     const fetchTheme = async () => {
       try {
-        const res = await fetch('/api/cms/theme-settings');
+        const res = await fetch(`${API_BASE_URL}/api/cms/theme-settings`);
         const data = await res.json();
         if (data?.content) {
           const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
@@ -49,7 +50,7 @@ const AdminThemeControl: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/cms/theme-settings', {
+      const res = await fetch(`${API_BASE_URL}/api/cms/theme-settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

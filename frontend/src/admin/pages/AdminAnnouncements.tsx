@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 const AdminAnnouncements: React.FC = () => {
   const { token, refreshAnnouncements } = useApp();
@@ -15,7 +16,7 @@ const AdminAnnouncements: React.FC = () => {
   });
 
   const fetchAnnouncements = () => {
-    fetch('/api/announcements/all', {
+    fetch(`${API_BASE_URL}/api/announcements/all`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.ok ? res.json() : [])
@@ -29,7 +30,7 @@ const AdminAnnouncements: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `/api/announcements/${editingId}` : '/api/announcements';
+    const url = editingId ? `${API_BASE_URL}/api/announcements/${editingId}` : `${API_BASE_URL}/api/announcements`;
     const method = editingId ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -51,7 +52,7 @@ const AdminAnnouncements: React.FC = () => {
 
   const handleDelete = (id: number) => {
     if (!window.confirm('Delete this announcement?')) return;
-    fetch(`/api/announcements/${id}`, {
+    fetch(`${API_BASE_URL}/api/announcements/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     })

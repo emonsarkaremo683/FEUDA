@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface UserIdentity {
   id: number;
@@ -16,7 +17,7 @@ const AdminUsers: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchUsers = () => {
-    fetch('/api/users', {
+    fetch(`${API_BASE_URL}/api/users`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
@@ -38,7 +39,7 @@ const AdminUsers: React.FC = () => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
     if (!window.confirm(`Elevate/Demote user to ${newRole}?`)) return;
     
-    fetch(`/api/users/${userId}/role`, {
+    fetch(`${API_BASE_URL}/api/users/${userId}/role`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ role: newRole })

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product, ColorVariant } from '../../types';
+import { API_BASE_URL } from '../../config';
 
 const AdminProducts: React.FC = () => {
   const { token, refreshProducts, categories } = useApp();
@@ -26,7 +27,7 @@ const AdminProducts: React.FC = () => {
   const [form, setForm] = useState(initialProductState);
 
   const fetchProducts = () => {
-    fetch('/api/products')
+    fetch(`${API_BASE_URL}/api/products`)
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => {
         setProducts(Array.isArray(data) ? data : []);
@@ -61,7 +62,7 @@ const AdminProducts: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = isEditing ? `/api/products/${currentId}` : '/api/products';
+    const url = isEditing ? `${API_BASE_URL}/api/products/${currentId}` : `${API_BASE_URL}/api/products`;
     const method = isEditing ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -86,7 +87,7 @@ const AdminProducts: React.FC = () => {
   const handleFileUpload = (file: File, colorIndex?: number) => {
     const formData = new FormData();
     formData.append('image', file);
-    fetch('/api/upload', {
+    fetch(`${API_BASE_URL}/api/upload`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -131,7 +132,7 @@ const AdminProducts: React.FC = () => {
 
   const handleDelete = (id: number) => {
     if (!window.confirm('Are you sure you want to delete this asset?')) return;
-    fetch(`/api/products/${id}`, {
+    fetch(`${API_BASE_URL}/api/products/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -338,3 +339,4 @@ const AdminProducts: React.FC = () => {
 };
 
 export default AdminProducts;
+AdminProducts;

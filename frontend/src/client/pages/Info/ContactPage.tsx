@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../../config';
 
 const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
@@ -7,7 +8,7 @@ const ContactPage: React.FC = () => {
   const [cmsContent, setCmsContent] = useState<any>(null);
 
   useEffect(() => {
-    fetch('/api/cms/contact').then(res => res.json()).then(data => setCmsContent(data)).catch(() => {});
+    fetch(`${API_BASE_URL}/api/cms/contact`).then(res => res.json()).then(data => setCmsContent(data)).catch(() => {});
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {

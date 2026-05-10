@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface PaymentMethod {
   id: number;
@@ -22,7 +23,7 @@ const AdminPayments: React.FC = () => {
   const [form, setForm] = useState(initialMethod);
 
   const fetchPayments = () => {
-    fetch('/api/payments')
+    fetch(`${API_BASE_URL}/api/payments`)
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
       .then(data => setMethods(Array.isArray(data) ? data : []))
       .catch(err => console.error('Payments Load Failed:', err));
@@ -47,7 +48,7 @@ const AdminPayments: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = isEditing ? `/api/payments/${currentId}` : '/api/payments';
+    const url = isEditing ? `${API_BASE_URL}/api/payments/${currentId}` : `${API_BASE_URL}/api/payments`;
     const method = isEditing ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -65,7 +66,7 @@ const AdminPayments: React.FC = () => {
 
   const handleDelete = (id: number) => {
     if (!window.confirm('Delete this payment gateway?')) return;
-    fetch(`/api/payments/${id}`, {
+    fetch(`${API_BASE_URL}/api/payments/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(() => fetchPayments());
@@ -157,3 +158,4 @@ const AdminPayments: React.FC = () => {
 };
 
 export default AdminPayments;
+AdminPayments;

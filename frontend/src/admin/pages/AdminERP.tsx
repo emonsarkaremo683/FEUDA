@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 const AdminERP: React.FC = () => {
   const { token } = useApp();
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    fetch('/api/analytics/stats', {
+    fetch(`${API_BASE_URL}/api/analytics/stats`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))

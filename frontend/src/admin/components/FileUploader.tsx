@@ -1,5 +1,6 @@
 
 import React, { useState, useId } from 'react';
+import { API_BASE_URL } from '../../config';
 
 interface FileUploaderProps {
   token: string | null;
@@ -20,7 +21,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ token, onUploadSuccess, lab
     formData.append('image', file); // Field name expected by server is 'image'
 
     try {
-      const res = await fetch('/api/upload', {
+      const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

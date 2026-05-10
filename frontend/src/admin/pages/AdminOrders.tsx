@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { API_BASE_URL } from '../../config';
 
 interface Order {
   id: string;
@@ -20,7 +21,7 @@ const AdminOrders: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
 
   const fetchOrders = () => {
-    fetch('/api/orders', {
+    fetch(`${API_BASE_URL}/api/orders`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.ok ? res.json() : Promise.reject('Fetch failed'))
@@ -40,7 +41,7 @@ const AdminOrders: React.FC = () => {
   }, [token]);
 
   const updateStatus = (orderId: string, status: string) => {
-    fetch(`/api/orders/${orderId}/status`, {
+    fetch(`${API_BASE_URL}/api/orders/${orderId}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +61,7 @@ const AdminOrders: React.FC = () => {
   };
 
   const fetchOrderDetails = (orderId: string) => {
-    fetch(`/api/orders/${orderId}`, {
+    fetch(`${API_BASE_URL}/api/orders/${orderId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
