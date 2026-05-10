@@ -68,7 +68,7 @@ async function createAdminAccountIfMissing() {
 
   try {
     // Check if an admin user already exists with this email
-    const [existingUsers, fields1] = await pool.query(
+    const [existingUsers]: any = await pool.query(
       'SELECT id FROM users WHERE email = ? AND role = ?',
       [adminEmail, 'admin']
     );
@@ -79,7 +79,7 @@ async function createAdminAccountIfMissing() {
     }
 
     // Check if a user with this email (any role) already exists. If so, update their role to admin.
-    const [anyExistingUsers, fields2] = await pool.query(
+    const [anyExistingUsers]: any = await pool.query(
       'SELECT id FROM users WHERE email = ?',
       [adminEmail]
     );
