@@ -264,7 +264,7 @@ const ProductListingPage: React.FC = () => {
                <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter capitalize mb-2">{pageTitle}</h1>
                <div className="flex items-center gap-2">
                  <div className="h-1 w-6 sm:w-8 bg-indigo-600 rounded-full"></div>
-                 <span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">{filteredProducts.length} Premium Results</span>
+                 <span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">{pagination.total} Premium Results</span>
                </div>
             </div>
             

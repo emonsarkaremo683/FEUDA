@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { CATEGORIES } from '../../data/products';
+import { CATEGORY_NAMES } from '../../data/products';
 
 interface CategoryBarProps {
   activeCategory: string;
@@ -11,7 +11,8 @@ const CategoryBar: React.FC<CategoryBarProps> = ({ activeCategory, onCategoryCli
   return (
     <div className="sticky top-20 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100 transition-all">
       <div className="max-w-7xl mx-auto overflow-x-auto hide-scrollbar flex items-center gap-2 sm:gap-3 py-4 px-4">
-        {CATEGORIES.map((cat) => (
+        {CATEGORY_NAMES.map((cat) => (
+
           <button
             key={cat}
             onClick={() => onCategoryClick(cat)}
