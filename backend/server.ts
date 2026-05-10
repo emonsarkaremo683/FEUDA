@@ -10,7 +10,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { fileURLToPath } from 'url';
-import * as admin from 'firebase-admin'; // Firebase Admin SDK
+import admin from 'firebase-admin'; // Firebase Admin SDK
 
 dotenv.config();
 
@@ -29,9 +29,17 @@ const FRONTEND_URLS = ['http://feudatech.com', 'https://feuda.vercel.app', 'http
 
 // Initialize Firebase Admin SDK
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-  admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY))
-  });
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } catch (e) {
+    console.error("Failed to initialize Firebase Admin:", e);
+  }
 } else {
   console.warn("FIREBASE_SERVICE_ACCOUNT_KEY not found. Firebase Admin SDK not initialized.");
 }
