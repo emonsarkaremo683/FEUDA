@@ -362,11 +362,13 @@ app.get('/api/cms/:slug', async (req, res) => {
   const [rows]: any = await pool.query('SELECT * FROM cms_pages WHERE slug = ?', [req.params.slug]);
   res.json(rows[0] || { title: 'Not Found', content: '' });
 });
-app.post('/api/cms', Gatekeeper.auth, Gatekeeper.admin, async (req, res) => {
+const handleCmsUpsert = async (req: any, res: any) => {
   const { title, content, slug } = req.body;
   const [r]: any = await pool.query('INSERT INTO cms_pages (slug, title, content) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=?, content=?', [slug, title, content, title, content]);
   res.json({ id: r.insertId || slug });
-});
+};
+app.post('/api/cms', Gatekeeper.auth, Gatekeeper.admin, handleCmsUpsert);
+app.put('/api/cms/:identifier', Gatekeeper.auth, Gatekeeper.admin, handleCmsUpsert);
 app.delete('/api/cms/:id', Gatekeeper.auth, Gatekeeper.admin, async (req, res) => {
   await pool.query('DELETE FROM cms_pages WHERE id = ?', [req.params.id]);
   res.json({ message: 'Deleted' });

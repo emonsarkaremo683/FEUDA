@@ -57,7 +57,7 @@ const RegisterPage: React.FC = () => {
     if (!res.ok) {
       throw new Error(data.error || 'Account synchronization failed');
     }
-    login(data.user, data.token);
+    login(firebaseUser, data.user, data.token);
     navigate('/dashboard');
   };
 

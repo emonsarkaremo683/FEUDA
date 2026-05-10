@@ -21,7 +21,7 @@ const ProductListingPage: React.FC = () => {
   const searchQuery = searchParams.get('q');
   const currentPage = parseInt(searchParams.get('page') || '1');
   
-  const { selectedDevice, setSelectedDevice, categories } = useApp();
+  const { selectedDevice, setSelectedDevice, categories, products: allProducts } = useApp();
   const [sortBy, setSortBy] = useState('popular');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -30,44 +30,52 @@ const ProductListingPage: React.FC = () => {
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(() => {
     setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '12',
-        sortBy,
-        inStock: inStockOnly.toString(),
-      });
+    let filtered = [...allProducts];
 
-      if (categoryId && categoryId !== 'all') params.append('category', categoryId);
-      if (searchQuery) params.append('q', searchQuery);
-
-      const res = await fetch(`${API_BASE_URL}/api/products?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        const formatted = data.products.map((p: any) => ({
-          id: p.id.toString(),
-          name: p.name,
-          category: p.category,
-          price: parseFloat(p.price),
-          image: p.image_url,
-          images: [p.image_url],
-          modelCompatibility: p.model_compatibility || 'All Models',
-          description: p.description,
-          stock: p.stock,
-          isBestSeller: !!p.is_best_seller,
-          colors: p.colors ? JSON.parse(p.colors) : []
-        }));
-        setProducts(formatted);
-        setPagination(data.pagination);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    // Filter by Category
+    if (categoryId && categoryId !== 'all') {
+      filtered = filtered.filter(p => p.category.toLowerCase().replace(/ /g, '-') === categoryId);
     }
-  }, [categoryId, searchQuery, currentPage, sortBy, inStockOnly]);
+
+    // Filter by Search Query
+    if (searchQuery) {
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Filter by Stock
+    if (inStockOnly) {
+      filtered = filtered.filter(p => p.stock > 0);
+    }
+
+    // Filter by Device
+    if (selectedDevice && selectedDevice !== 'all') {
+      filtered = filtered.filter(p => p.modelCompatibility === selectedDevice || p.modelCompatibility === 'All Models');
+    }
+
+    // Sort
+    if (sortBy === 'price-low') {
+      filtered.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price-high') {
+      filtered.sort((a, b) => b.price - a.price);
+    } else {
+      // popular
+      filtered.sort((a, b) => (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0));
+    }
+
+    const limit = 12;
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const startIndex = (currentPage - 1) * limit;
+    
+    setProducts(filtered.slice(startIndex, startIndex + limit));
+    setPagination({ total, totalPages });
+    setLoading(false);
+  }, [allProducts, categoryId, searchQuery, currentPage, sortBy, inStockOnly, selectedDevice]);
 
   useEffect(() => {
     fetchProducts();

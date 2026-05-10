@@ -41,7 +41,7 @@ const LoginPage: React.FC = () => {
       if (!response.ok) {
         throw new Error(data.error || 'Authentication failed');
       }
-      login(data.user, data.token);
+      login(firebaseUser, data.user, data.token);
       if (data.user.role === 'admin') {
         navigate('/admin/dashboard');
       } else {
