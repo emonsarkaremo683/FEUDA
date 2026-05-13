@@ -371,7 +371,8 @@ const ProductListingPage: React.FC = () => {
         </main>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default ProductListingPage;
