@@ -107,7 +107,7 @@ const AdminMenus: React.FC = () => {
 
   const handleDelete = (id: number) => {
     if (!window.confirm('Purge this navigation node and its children?')) return;
-    fetch(`/api/menus/${id}`, {
+    fetch(`${API_BASE_URL}/api/menus/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(res => {

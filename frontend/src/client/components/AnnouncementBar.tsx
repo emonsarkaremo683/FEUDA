@@ -20,9 +20,9 @@ const AnnouncementBar: React.FC = () => {
   if (activeAnnouncements.length === 0) return null;
 
   return (
-    <div className="bg-gradient-to-r from-blue-700 via-purple-600 to-red-500 text-white overflow-hidden h-10 flex items-center relative z-[60]">
-      <div className="w-full flex justify-center items-center px-4">
-        <div className="relative w-full max-w-2xl h-6 overflow-hidden">
+    <div className="bg-gradient-to-r from-blue-700 via-purple-600 to-red-500 text-white overflow-hidden h-10 flex items-center relative">
+      <div className="w-full flex justify-center items-center px-4 md:px-8">
+        <div className="relative w-full max-w-4xl h-6 overflow-hidden">
           {activeAnnouncements.map((announcement, i) => (
             <div
               key={announcement.id || i}

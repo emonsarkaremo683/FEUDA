@@ -31,8 +31,8 @@ const AdminAnalytics: React.FC = () => {
     <div className="space-y-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-           <h2 className="text-3xl font-black text-white uppercase tracking-tight">Nexus Analytics</h2>
-           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.3em] mt-2">Deep Intelligence Feed</p>
+           <h2 className="text-3xl font-black text-white uppercase tracking-tight">Strategic Analytics</h2>
+           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.3em] mt-2">Business Performance Feed</p>
         </div>
         <div className="bg-white/5 px-6 py-3 rounded-2xl border border-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest">
            Last Sync: {new Date().toLocaleTimeString()}

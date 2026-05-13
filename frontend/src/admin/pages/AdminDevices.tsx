@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { API_BASE_URL } from '../../config';
+import AdminModal from '../components/AdminModal';
+import AdminConfirmDialog from '../components/AdminConfirmDialog';
 
 const AdminDevices: React.FC = () => {
   const { token } = useApp();
@@ -9,6 +11,12 @@ const AdminDevices: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState('');
+  
+  // Custom Confirm State
+  const [confirmDelete, setConfirmDelete] = useState<{ isOpen: boolean; deviceName: string }>({ 
+    isOpen: false, 
+    deviceName: '' 
+  });
 
   const fetchDevices = () => {
     fetch(`${API_BASE_URL}/api/devices`)
@@ -45,7 +53,6 @@ const AdminDevices: React.FC = () => {
   };
 
   const handleDelete = (name: string) => {
-    if (!window.confirm(`Purge hardware spec: ${name}?`)) return;
     fetch(`${API_BASE_URL}/api/devices/${encodeURIComponent(name)}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -70,7 +77,10 @@ const AdminDevices: React.FC = () => {
              </div>
              <div className="flex justify-between items-start mb-6 relative z-10">
                 <h4 className="text-xl font-black text-white">{device}</h4>
-                <button onClick={() => handleDelete(device)} className="p-2 hover:bg-red-500/20 text-slate-600 hover:text-red-400 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                <button 
+                  onClick={() => setConfirmDelete({ isOpen: true, deviceName: device })} 
+                  className="p-2 hover:bg-red-500/20 text-slate-600 hover:text-red-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
              </div>
@@ -83,25 +93,41 @@ const AdminDevices: React.FC = () => {
         ))}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0f1115]/90 backdrop-blur-md">
-           <div className="bg-[#161920] border border-white/10 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-scale-in">
-              <div className="p-10 border-b border-white/5 text-center">
-                 <h3 className="text-2xl font-black text-white uppercase tracking-tight">Register Hardware Unit</h3>
-              </div>
-              <form onSubmit={handleSubmit} className="p-10 space-y-6">
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Device Name / Model</label>
-                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-indigo-500 transition-all font-bold" placeholder="e.g. iPhone 16 Pro Max" required />
-                 </div>
-                 <div className="flex gap-4 pt-4">
-                    <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 bg-white/5 text-slate-400 font-black uppercase text-[10px] rounded-2xl">Abort</button>
-                    <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black uppercase text-[10px] rounded-2xl shadow-lg shadow-indigo-500/20">Initialize</button>
-                 </div>
-              </form>
-           </div>
-        </div>
-      )}
+      {/* Register Modal */}
+      <AdminModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        title="Register Hardware Unit"
+        subtitle="Initialize New Compatibility Profile"
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Device Name / Model</label>
+            <input 
+              type="text" 
+              value={newName} 
+              onChange={e => setNewName(e.target.value)} 
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-indigo-500 transition-all font-bold" 
+              placeholder="e.g. iPhone 16 Pro Max" 
+              required 
+            />
+          </div>
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 bg-white/5 text-slate-400 font-black uppercase text-[10px] rounded-2xl">Abort</button>
+            <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black uppercase text-[10px] rounded-2xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">Initialize</button>
+          </div>
+        </form>
+      </AdminModal>
+
+      {/* Delete Confirmation */}
+      <AdminConfirmDialog 
+        isOpen={confirmDelete.isOpen}
+        onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+        onConfirm={() => handleDelete(confirmDelete.deviceName)}
+        title="Purge Hardware Spec"
+        message={`Are you sure you want to permanently remove the "${confirmDelete.deviceName}" specification from the registry?`}
+        confirmText="Confirm Purge"
+      />
     </div>
   );
 };

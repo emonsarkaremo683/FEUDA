@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { API_BASE_URL } from '../../../config';
 
 interface CMSContent {
   title: string;
@@ -28,7 +29,7 @@ const PolicyPage: React.FC = () => {
       setLoading(true);
       const slug = slugMap[type || ''] || type;
       try {
-        const res = await fetch(`/api/cms/${slug}`);
+        const res = await fetch(`${API_BASE_URL}/api/cms/${slug}`);
         if (res.ok) {
           const content = await res.json();
           setData(content);

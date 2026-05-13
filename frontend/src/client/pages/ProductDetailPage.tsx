@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import LazyImage from '../components/LazyImage';
+import SEO from '../components/SEO';
 import { ColorVariant } from '../../types';
 import { API_BASE_URL } from '../../config';
 
@@ -125,6 +126,12 @@ const ProductDetailPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      <SEO 
+        title={product.name} 
+        description={product.description} 
+        image={product.image}
+        type="product"
+      />
       <nav className="flex flex-wrap text-[10px] sm:text-xs font-black uppercase tracking-widest text-gray-400 mb-8 sm:mb-12 gap-y-2" aria-label="Breadcrumb">
         <Link to="/" className="hover:text-blue-900 transition-colors">Home</Link>
         <span className="mx-3 opacity-30">/</span>

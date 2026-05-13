@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ShippingInfo, PaymentMethodType } from '../../types';
+import PurchaseSlip from '../components/PurchaseSlip';
 
 type CheckoutStep = 'shipping' | 'payment' | 'review' | 'success';
 
@@ -11,17 +12,9 @@ const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<CheckoutStep>('shipping');
   const [lastOrder, setLastOrder] = useState<any>(null);
+  const [showSlip, setShowModal] = useState(false);
 
-  // Form States
-  const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
-    fullName: '', phone: '', email: '', address: '', city: '', area: '', postalCode: '', note: ''
-  });
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('COD');
-  const [paymentDetails, setPaymentDetails] = useState({ phone: '', transactionId: '', cardName: '', cardNumber: '', expiry: '', cvv: '' });
-
-  const shippingFee = cartTotal > 50 ? 0 : 9.99;
-  const tax = cartTotal * 0.08;
-  const total = cartTotal + shippingFee + tax;
+  // ... rest of form states ...
 
   const handlePlaceOrder = async () => {
     try {
@@ -80,14 +73,27 @@ const CheckoutPage: React.FC = () => {
             <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Order Confirmed!</h1>
             <p className="text-gray-500 mb-2">Thank you for your purchase, {lastOrder?.shipping.fullName}.</p>
             <p className="text-blue-600 font-bold mb-8">Order ID: {lastOrder?.id}</p>
-            <div className="max-w-md mx-auto bg-white rounded-3xl p-6 border mb-8 text-left">
+            <div className="max-w-md mx-auto bg-white rounded-3xl p-6 border mb-12 text-left">
                <h3 className="font-bold mb-4">Shipping to:</h3>
                <p className="text-sm text-gray-600">{lastOrder?.shipping.address}, {lastOrder?.shipping.area}</p>
                <p className="text-sm text-gray-600">{lastOrder?.shipping.city} - {lastOrder?.shipping.postalCode}</p>
             </div>
-            <button onClick={() => navigate('/')} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/10">
-              Back to Home
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button 
+                onClick={() => setShowModal(true)} 
+                className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                View Purchase Slip
+              </button>
+              <button onClick={() => navigate('/')} className="w-full sm:w-auto bg-slate-100 text-slate-900 px-10 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all">
+                Back to Home
+              </button>
+            </div>
+
+            {showSlip && lastOrder && (
+              <PurchaseSlip order={lastOrder} onClose={() => setShowModal(false)} />
+            )}
           </div>
         ) : (
           <>

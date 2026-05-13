@@ -10,6 +10,7 @@ import TabbedProductShowcase from '../components/TabbedProductShowcase';
 import StorySection from '../components/StorySection';
 import ShopByCategory from '../components/ShopByCategory';
 import VideoSection from '../components/VideoSection';
+import SEO from '../components/SEO';
 
 // Define mapping for Homepage component loading
 const SectionComponents: Record<string, React.FC<any>> = {
@@ -216,6 +217,10 @@ const HomePage: React.FC<HomePageProps> = ({ previewLayout }) => {
 
   return (
     <div className="min-h-screen bg-[#fafafa] pb-20">
+      <SEO 
+        title="FEUDA TECH | Premium Phone Cases & Digital Assets" 
+        description="Discover the ultimate collection of premium phone cases, accessories, and digital assets. Engineered for style, built for protection."
+      />
       {finalLayout.sort((a,b) => a.order - b.order).map(section => renderSection(section))}
     </div>
   );

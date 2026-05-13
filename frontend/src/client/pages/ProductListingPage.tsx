@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
+import SEO from '../components/SEO';
+import StickyCategoryNav from '../components/StickyCategoryNav';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { API_BASE_URL } from '../../config';
@@ -93,9 +95,17 @@ const ProductListingPage: React.FC = () => {
     : (searchQuery ? `Results for "${searchQuery}"` : 'All Products');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
-      {/* Breadcrumbs */}
-      <nav className="flex text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 mb-6 sm:mb-10" aria-label="Breadcrumb">
+    <div className="bg-[#fafafa] min-h-screen">
+      <SEO 
+        title={pageTitle} 
+        description={`Browse our premium selection of ${pageTitle}. High-quality assets engineered for performance and style.`}
+      />
+      
+      <StickyCategoryNav categories={categories} activeCategoryId={categoryId} />
+
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
+        {/* Breadcrumbs */}
+        <nav className="flex text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 mb-6 sm:mb-10" aria-label="Breadcrumb">
         <Link to="/" className="hover:text-indigo-600 transition-colors">Home</Link>
         <span className="mx-3 opacity-30">/</span>
         <span className="text-slate-900 truncate max-w-[150px] sm:max-w-none">{pageTitle}</span>

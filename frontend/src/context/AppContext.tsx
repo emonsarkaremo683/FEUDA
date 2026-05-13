@@ -423,7 +423,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUser({ ...backendUser, uid: firebaseUser.uid, emailVerified: firebaseUser.emailVerified });
     localStorage.setItem('fauda_token', idToken);
     if (rememberMe) localStorage.setItem('fauda_user', JSON.stringify({ ...backendUser, uid: firebaseUser.uid, emailVerified: firebaseUser.emailVerified }));
-    showToast(backendUser.role === 'admin' ? `Intelligence session established.` : `Welcome, ${backendUser.fullName}.`);
+    showToast(backendUser.role === 'admin' ? `Admin session established.` : `Welcome, ${backendUser.fullName}.`);
   };
 
   const logout = async () => {

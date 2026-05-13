@@ -49,6 +49,7 @@ import AdminHomepageControl from './admin/pages/AdminHomepageControl';
 const AdminPayments = lazy(() => import('./admin/pages/AdminPayments'));
 const AdminDevices = lazy(() => import('./admin/pages/AdminDevices'));
 const AdminERP = lazy(() => import('./admin/pages/AdminERP'));
+const AdminDelivery = lazy(() => import('./admin/pages/AdminDelivery'));
 
 const FullPageLoader = () => (
   <div className="flex h-[50vh] items-center justify-center">
@@ -77,8 +78,12 @@ const AppRoutes: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {!isAdminPath && <AnnouncementBar />}
-      {!isAdminPath && <Navbar />}
+      {!isAdminPath && (
+        <div className="sticky top-0 z-[60]">
+          <AnnouncementBar />
+          <Navbar />
+        </div>
+      )}
       <div className="flex-grow">
         <Suspense fallback={<FullPageLoader />}>
           <Routes>
@@ -118,6 +123,7 @@ const AppRoutes: React.FC = () => {
               <Route path="homepage" element={<AdminHomepageControl />} />
               <Route path="announcements" element={<AdminAnnouncements />} />
               <Route path="devices" element={<AdminDevices />} />
+              <Route path="delivery" element={<AdminDelivery />} />
               <Route path="erp" element={<AdminERP />} />
             </Route>
           </Routes>

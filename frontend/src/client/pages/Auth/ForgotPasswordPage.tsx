@@ -1,15 +1,33 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { auth } from '../../../firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
 
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
+    if (!email.trim()) return;
+
+    setIsLoading(true);
+    setError('');
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
       setIsSubmitted(true);
+    } catch (err: any) {
+      console.error('Password Reset Error:', err);
+      let message = 'Failed to send reset email.';
+      if (err.code === 'auth/user-not-found') message = 'No account found with this email.';
+      else if (err.code === 'auth/invalid-email') message = 'Invalid email address.';
+      else if (err.message) message = err.message;
+      setError(message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -26,20 +44,31 @@ const ForgotPasswordPage: React.FC = () => {
               <p className="text-gray-500 text-sm mt-1">No worries, we'll send you reset instructions.</p>
             </div>
 
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-medium">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
                 <input 
                   type="email" 
                   required
-                  className="checkout-input" 
+                  disabled={isLoading}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300" 
                   placeholder="name@example.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                 />
               </div>
-              <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl hover:shadow-blue-500/10 active:scale-[0.98]">
-                Reset Password
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl hover:shadow-blue-500/10 active:scale-[0.98] disabled:opacity-50"
+              >
+                {isLoading ? 'Sending...' : 'Reset Password'}
               </button>
             </form>
           </>
@@ -50,7 +79,11 @@ const ForgotPasswordPage: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-slate-900">Check your email</h2>
             <p className="text-gray-500 text-sm mt-2 mb-8">We've sent a password reset link to <br/><span className="font-bold text-slate-900">{email}</span></p>
-            <button onClick={() => setIsSubmitted(false)} className="text-blue-600 font-bold hover:underline">
+            <button 
+              onClick={() => setIsSubmitted(false)} 
+              className="text-blue-600 font-bold hover:underline"
+              disabled={isLoading}
+            >
               Didn't receive it? Click to resend
             </button>
           </div>

@@ -31,8 +31,8 @@ const RegisterPage: React.FC = () => {
   const validate = () => {
     const newErrors: typeof errors = {};
     if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email.trim())) newErrors.email = 'Invalid email';
     
     if (!formData.password) newErrors.password = 'Password is required';
     else if (formData.password.length < 8) newErrors.password = 'Minimum 8 characters';
@@ -67,7 +67,7 @@ const RegisterPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email.trim(), formData.password);
       await sendEmailVerification(userCredential.user);
       setEmailSent(true);
     } catch (err: any) {

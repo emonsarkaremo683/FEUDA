@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product, ColorVariant } from '../../types';
 import { API_BASE_URL } from '../../config';
+import AdminModal from '../components/AdminModal';
+import AdminConfirmDialog from '../components/AdminConfirmDialog';
 
 const AdminProducts: React.FC = () => {
   const { token, refreshProducts, categories } = useApp();
@@ -11,6 +13,13 @@ const AdminProducts: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState<number | null>(null);
+
+  // Custom Confirm State
+  const [confirmDelete, setConfirmDelete] = useState<{ isOpen: boolean; id: number | null; name: string }>({ 
+    isOpen: false, 
+    id: null,
+    name: '' 
+  });
 
   const initialProductState = {
     name: '',
@@ -131,7 +140,6 @@ const AdminProducts: React.FC = () => {
   };
 
   const handleDelete = (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this asset?')) return;
     fetch(`${API_BASE_URL}/api/products/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -197,7 +205,7 @@ const AdminProducts: React.FC = () => {
                   </td>
                   <td className="px-8 py-5 text-right flex justify-end gap-2">
                     <button onClick={() => handleEdit(p)} className="p-2 hover:bg-purple-500/10 text-slate-500 hover:text-purple-400 rounded-lg transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                    <button onClick={() => handleDelete(p.id)} className="p-2 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    <button onClick={() => setConfirmDelete({ isOpen: true, id: p.id, name: p.name })} className="p-2 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                   </td>
                 </tr>
               ))}
@@ -206,137 +214,138 @@ const AdminProducts: React.FC = () => {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 bg-[#0f1115]/90 backdrop-blur-md overflow-y-auto pt-20">
-          <div className="bg-[#161920] border border-white/10 w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-scale-in mb-20">
-            <div className="p-10 border-b border-white/5 bg-gradient-to-r from-purple-600/5 to-transparent flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-black text-white uppercase tracking-tight">{isEditing ? 'Update' : 'Deploy'} Asset Unit</h3>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Configure full variant spectrum</p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white transition-colors">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+      <AdminModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        title={isEditing ? 'Update Asset' : 'Deploy Asset Unit'}
+        subtitle="Configure full variant spectrum"
+        maxWidth="max-w-4xl"
+      >
+        <form onSubmit={handleSubmit} className="space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Name</label>
+                 <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" required />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Category</label>
+                    <select 
+                      value={form.category} 
+                      onChange={e => setForm({...form, category: e.target.value})} 
+                      className="w-full bg-[#0f1115] border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none appearance-none" 
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Compatibility</label>
+                    <input type="text" value={form.modelCompatibility} onChange={e => setForm({...form, modelCompatibility: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" />
+                  </div>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Price (৳)</label>
+                    <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" required />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Stock</label>
+                    <input type="number" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" required />
+                  </div>
+               </div>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-10 space-y-10">
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-6">
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Name</label>
-                     <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" required />
-                   </div>
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Category</label>
-                        <select 
-                          value={form.category} 
-                          onChange={e => setForm({...form, category: e.target.value})} 
-                          className="w-full bg-[#161920] border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none appearance-none" 
-                          required
-                        >
-                          <option value="">Select Category</option>
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Compatibility</label>
-                        <input type="text" value={form.modelCompatibility} onChange={e => setForm({...form, modelCompatibility: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" />
-                      </div>
-                   </div>
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Price (৳)</label>
-                        <input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" required />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Stock</label>
-                        <input type="number" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none" required />
-                      </div>
-                   </div>
-                </div>
 
-                <div className="space-y-6">
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Description</label>
-                     <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none h-[11.5rem]" required />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Main Asset Thumbnail</label>
-                     <div className="relative group h-28">
-                        <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                        <div className="h-full bg-white/5 border-2 border-dashed border-white/10 rounded-3xl flex items-center justify-center group-hover:border-purple-500 transition-all overflow-hidden">
-                           {form.imageUrl ? <img src={form.imageUrl} className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Upload Thumb</span>}
+            <div className="space-y-6">
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Description</label>
+                 <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-purple-500 outline-none h-[11.5rem]" required />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Main Asset Thumbnail</label>
+                 <div className="relative group h-28">
+                    <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div className="h-full bg-white/5 border-2 border-dashed border-white/10 rounded-3xl flex items-center justify-center group-hover:border-purple-500 transition-all overflow-hidden">
+                       {form.imageUrl ? <img src={form.imageUrl} className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Upload Thumb</span>}
+                    </div>
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          {/* COLORS & IMAGES SECTION */}
+          <div className="space-y-6">
+             <div className="flex justify-between items-center">
+                <h4 className="text-white font-black uppercase tracking-widest text-sm">Chromatic Variants</h4>
+                <button type="button" onClick={addColor} className="text-[10px] font-black text-purple-400 uppercase tracking-widest bg-purple-500/10 px-4 py-2 rounded-xl border border-purple-500/20 hover:bg-purple-500/20 transition-all">+ Add Color Spec</button>
+             </div>
+
+             <div className="space-y-6">
+                {form.colors.map((color, cIdx) => (
+                  <div key={cIdx} className="bg-white/2 border border-white/5 rounded-[2rem] p-8 space-y-6 relative group/card">
+                     <button type="button" onClick={() => removeColor(cIdx)} className="absolute top-6 right-6 text-slate-600 hover:text-red-400 transition-colors">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                     </button>
+
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                           <label className="text-[8px] font-black uppercase tracking-widest text-slate-600 ml-2">Color Name (e.g. Cobalt Blue)</label>
+                           <input type="text" value={color.name} onChange={e => updateColor(cIdx, 'name', e.target.value)} className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-purple-500/50 font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[8px] font-black uppercase tracking-widest text-slate-600 ml-2">Hex Code</label>
+                           <div className="flex gap-3">
+                              <input type="color" value={color.hex} onChange={e => updateColor(cIdx, 'hex', e.target.value)} className="w-12 h-10 bg-transparent border-none outline-none cursor-pointer" />
+                              <input type="text" value={color.hex} onChange={e => updateColor(cIdx, 'hex', e.target.value)} className="flex-grow bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-purple-500/50 font-mono" />
+                           </div>
                         </div>
                      </div>
-                   </div>
-                </div>
-              </div>
 
-              {/* COLORS & IMAGES SECTION */}
-              <div className="space-y-6">
-                 <div className="flex justify-between items-center">
-                    <h4 className="text-white font-black uppercase tracking-widest text-sm">Chromatic Variants</h4>
-                    <button type="button" onClick={addColor} className="text-[10px] font-black text-purple-400 uppercase tracking-widest bg-purple-500/10 px-4 py-2 rounded-xl border border-purple-500/20 hover:bg-purple-500/20 transition-all">+ Add Color Spec</button>
-                 </div>
-
-                 <div className="space-y-6">
-                    {form.colors.map((color, cIdx) => (
-                      <div key={cIdx} className="bg-white/2 border border-white/5 rounded-[2rem] p-8 space-y-6 relative group/card">
-                         <button type="button" onClick={() => removeColor(cIdx)} className="absolute top-6 right-6 text-slate-600 hover:text-red-400 transition-colors">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                         </button>
-
-                         <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                               <label className="text-[8px] font-black uppercase tracking-widest text-slate-600 ml-2">Color Name (e.g. Cobalt Blue)</label>
-                               <input type="text" value={color.name} onChange={e => updateColor(cIdx, 'name', e.target.value)} className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-purple-500/50 font-bold" />
-                            </div>
-                            <div className="space-y-2">
-                               <label className="text-[8px] font-black uppercase tracking-widest text-slate-600 ml-2">Hex Code</label>
-                               <div className="flex gap-3">
-                                  <input type="color" value={color.hex} onChange={e => updateColor(cIdx, 'hex', e.target.value)} className="w-12 h-10 bg-transparent border-none outline-none cursor-pointer" />
-                                  <input type="text" value={color.hex} onChange={e => updateColor(cIdx, 'hex', e.target.value)} className="flex-grow bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-purple-500/50 font-mono" />
-                               </div>
-                            </div>
-                         </div>
-
-                         <div className="space-y-3">
-                            <label className="text-[8px] font-black uppercase tracking-widest text-slate-600 ml-2">Variant-Specific Media Assets</label>
-                            <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
-                               {color.images?.map((img, iIdx) => (
-                                 <div key={iIdx} className="aspect-square bg-black/40 rounded-xl relative group overflow-hidden border border-white/5">
-                                    <img src={img} className="w-full h-full object-cover" />
-                                    <button type="button" onClick={() => removeColorImage(cIdx, iIdx)} className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                 </div>
-                               ))}
-                               <div className="aspect-square bg-white/5 border-2 border-dashed border-white/10 rounded-xl relative flex items-center justify-center hover:border-purple-500/50 transition-all">
-                                  <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0], cIdx)} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                                  <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                               </div>
-                            </div>
-                         </div>
-                      </div>
-                    ))}
-                    {form.colors.length === 0 && <p className="text-center py-10 text-slate-600 text-xs font-bold uppercase tracking-widest bg-white/2 rounded-3xl border border-dashed border-white/10">No color variants defined</p>}
-                 </div>
-              </div>
-
-              <div className="flex gap-4 pt-10">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 rounded-2xl font-black bg-white/5 text-slate-500 hover:bg-white/10 transition-all uppercase tracking-[0.2em] text-[10px]">Terminate Session</button>
-                <button type="submit" className="flex-1 py-5 rounded-2xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 shadow-xl shadow-purple-500/20 text-white hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.2em] text-[10px]">{isEditing ? 'Commit Update' : 'Initialize Unit'}</button>
-              </div>
-            </form>
+                     <div className="space-y-3">
+                        <label className="text-[8px] font-black uppercase tracking-widest text-slate-600 ml-2">Variant-Specific Media Assets</label>
+                        <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
+                           {color.images?.map((img, iIdx) => (
+                             <div key={iIdx} className="aspect-square bg-black/40 rounded-xl relative group overflow-hidden border border-white/5">
+                                <img src={img} className="w-full h-full object-cover" />
+                                <button type="button" onClick={() => removeColorImage(cIdx, iIdx)} className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                             </div>
+                           ))}
+                           <div className="aspect-square bg-white/5 border-2 border-dashed border-white/10 rounded-xl relative flex items-center justify-center hover:border-purple-500/50 transition-all">
+                              <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0], cIdx)} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                ))}
+                {form.colors.length === 0 && <p className="text-center py-10 text-slate-600 text-xs font-bold uppercase tracking-widest bg-white/2 rounded-3xl border border-dashed border-white/10">No color variants defined</p>}
+             </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex gap-4 pt-10 border-t border-white/5">
+            <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 rounded-2xl font-black bg-white/5 text-slate-500 hover:bg-white/10 transition-all uppercase tracking-[0.2em] text-[10px]">Terminate Session</button>
+            <button type="submit" className="flex-1 py-5 rounded-2xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 shadow-xl shadow-purple-500/20 text-white hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.2em] text-[10px]">{isEditing ? 'Commit Update' : 'Initialize Unit'}</button>
+          </div>
+        </form>
+      </AdminModal>
+
+      {/* Delete Confirmation */}
+      <AdminConfirmDialog 
+        isOpen={confirmDelete.isOpen}
+        onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+        onConfirm={() => confirmDelete.id && handleDelete(confirmDelete.id)}
+        title="Purge Asset Identity"
+        message={`Are you sure you want to permanently delete the "${confirmDelete.name}" asset? This will remove all variants and inventory data from the system.`}
+        confirmText="Confirm Purge"
+      />
     </div>
   );
 };
 
 export default AdminProducts;
-AdminProducts;

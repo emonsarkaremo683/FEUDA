@@ -158,9 +158,6 @@ const Footer: React.FC = () => {
           <p className="text-xs leading-5 text-slate-400">
             &copy; {new Date().getFullYear()} FEUDA, Inc. All rights reserved.
           </p>
-          <p className="text-xs leading-5 text-slate-400 font-medium">
-            Developed by <span className="text-slate-300">Elite Tech Inc</span>
-          </p>
         </div>
       </div>
     </footer>

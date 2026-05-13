@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-gray-50 text-slate-900;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .checkout-input {
+    @apply w-full py-4 px-5 rounded-2xl border border-slate-200 outline-none text-sm transition-all bg-white;
+  }
+  .checkout-input:focus {
+    @apply border-slate-900 ring-4 ring-slate-900/10;
+  }
+  
+  .utility-card {
+    @apply bg-white rounded-[24px] transition-all;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  }
+  .utility-card:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #cbd5e1;
+  }
+}
+
+@keyframes bounce-in {
+  0% { transform: translateY(50px) scale(0.95); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(to right, #e2e8f0 8%, #cbd5e1 18%, #e2e8f0 33%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}

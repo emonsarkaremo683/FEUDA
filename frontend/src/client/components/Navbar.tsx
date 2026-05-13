@@ -24,7 +24,7 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm font-sans border-b border-gray-100 transition-all duration-300">
+    <nav className="bg-white/80 backdrop-blur-md z-50 shadow-sm font-sans border-b border-gray-100 transition-all duration-300">
       {/* Search Overlay */}
       {showSearch && (
         <div className="absolute inset-x-0 top-full bg-white border-b border-gray-100 p-4 shadow-xl z-50 animate-fade-in">
@@ -51,7 +51,7 @@ const Navbar: React.FC = () => {
         <div className="flex items-center gap-4 lg:gap-6">
           <Link to="/" className="flex items-center gap-2 group">
              <div className="flex items-center">
-               <img src="/logo.png" alt="FEUDA" className="h-10 w-auto object-contain" />
+               <img src="/logo.png" alt="FEUDA TECH - Premium Digital Assets Logo" className="h-10 w-auto object-contain" />
              </div>
           </Link>
         </div>
@@ -94,7 +94,7 @@ const Navbar: React.FC = () => {
                            </div>
                            {/* Visual Reference Side */}
                            <div className="w-1/3 relative bg-[#f8f9fb]">
-                              <img src="/sub-menu.png" className="w-full h-full object-cover opacity-90 mix-blend-multiply" alt="Submenu Style Reference" />
+                              <img src="/sub-menu.png" className="w-full h-full object-cover opacity-90 mix-blend-multiply" alt="Nexus Pro Series Feature Reference" />
                               <div className="absolute inset-0 bg-gradient-to-r from-[#f8f9fb] to-transparent" />
                               <div className="absolute bottom-10 left-10 p-8 bg-white/40 backdrop-blur-md rounded-[2rem] border border-white/20 max-w-xs">
                                  <h5 className="font-black text-slate-900 text-lg uppercase leading-tight mb-2">Nexus Pro Series</h5>

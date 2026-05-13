@@ -16,7 +16,8 @@ const LoginPage: React.FC = () => {
 
   const validate = () => {
     const newErrors: typeof errors = {};
-    if (!email) newErrors.email = 'Email is required';
+    if (!email.trim()) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(email.trim())) newErrors.email = 'Invalid email format';
     if (!password) newErrors.password = 'Password is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -39,7 +40,7 @@ const LoginPage: React.FC = () => {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed');
+        throw new Error(data.error || 'Backend synchronization failed');
       }
       login(firebaseUser, data.user, data.token);
       if (data.user.role === 'admin') {
@@ -48,8 +49,8 @@ const LoginPage: React.FC = () => {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      console.error('Auth Error:', err);
-      setErrors({ general: err.message || 'Login failed. Please try again.' });
+      console.error('Auth Sync Error:', err);
+      setErrors({ general: err.message || 'Login failed during synchronization.' });
     }
   };
 
@@ -60,11 +61,17 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     setErrors({});
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       await handleFirebaseAuthentication(userCredential.user, userCredential.user.displayName);
     } catch (err: any) {
       console.error('Login Error:', err);
-      setErrors({ general: 'Invalid email or password.' });
+      let message = 'Invalid email or password.';
+      if (err.code === 'auth/user-not-found') message = 'No account found with this email.';
+      else if (err.code === 'auth/wrong-password') message = 'Incorrect password.';
+      else if (err.code === 'auth/too-many-requests') message = 'Too many failed attempts. Please try again later.';
+      else if (err.message) message = err.message;
+      
+      setErrors({ general: message });
     } finally {
       setIsLoading(false);
     }
