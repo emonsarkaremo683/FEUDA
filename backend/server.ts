@@ -116,11 +116,11 @@ const Schemas = {
 // Middleware
 app.use(cors({ origin: FRONTEND_URLS, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // Storage (Vercel-limited: /tmp is ephemeral)
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'public', 'uploads')),
+  destination: (req, file, cb) => cb(null, path.join(__dirname, 'public', 'uploads')),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 const upload = multer({ storage });
@@ -416,7 +416,22 @@ app.get('/api/analytics/stats', Gatekeeper.auth, Gatekeeper.admin, async (req, r
   res.json({ revenue: rev[0].revenue || 0, orders: ords[0].count, products: prods[0].count, users: users[0].count });
 });
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', domain: 'feudatech.com' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', domain: 'feudatech.com', timestamp: new Date().toISOString() }));
+
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head><title>FEUDA API</title></head>
+      <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; color: #1e293b;">
+        <h1 style="font-size: 3rem; margin-bottom: 0;">FEUDA</h1>
+        <p style="font-size: 1.2rem; color: #64748b;">Premium Accessories Core API v4.0</p>
+        <div style="margin-top: 2rem; padding: 1rem 2rem; background: white; border-radius: 1rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+          Status: <span style="color: #10b981; font-weight: bold;">Online</span>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 export default app;
 
